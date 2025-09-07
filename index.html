@@ -13,85 +13,92 @@
     --fg:#ffffff;
     --danger:#ff2222;
   }
-  html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif;overflow:hidden;}
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);
+    font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif;overflow:hidden;}
 
   .app{position:relative;height:100%;width:100%;display:flex;flex-direction:column;}
 
   .field{position:relative;flex:1 1 auto;overflow:hidden;background:var(--bg);}
 
-  /* Segments (accumulating) */
+  /* Segments (accumulating yellow→green→blue) */
   .segments{position:absolute;inset:0;display:flex;pointer-events:none;z-index:1;}
   .seg{height:100%;width:0}
   .seg.yellow{background:var(--yellow)}
   .seg.green{background:var(--green)}
   .seg.blue{background:var(--blue)}
 
-  /* Marker lines + labels */
-  .markers{position:absolute;inset:0;pointer-events:none;z-index:3;}
-  .marker{position:absolute;top:0;bottom:0;width:2px;opacity:.95;}
+  /* Marker lines + time labels at bottom */
+  .markers{position:absolute;inset:0;pointer-events:none;z-index:9;}
+  .marker{position:absolute;top:0;bottom:0;width:2px;opacity:.98;}
   .marker.yellow{background:var(--yellow)}
   .marker.green{background:var(--green)}
   .marker.blue{background:var(--blue)}
   .marker-label{
-    position:absolute;bottom:6px;
+    position:absolute;bottom:6px;display:flex;align-items:center;gap:6px;
     font-size:12px;opacity:0.9;background:rgba(0,0,0,.35);
     padding:2px 6px;border-radius:6px;border:1px solid rgba(255,255,255,.12);
-    transform: translateX(-8px);white-space:nowrap;
+    white-space:nowrap;pointer-events:none;
   }
+  .marker-label.left { transform: translateX(-8px); }  /* to the left of line */
+  .marker-label.right{ transform: translateX(8px); }   /* to the right of line */
+  .label-dot{width:9px;height:9px;border-radius:50%;display:inline-block}
+  .label-dot.yellow{background:var(--yellow)}
+  .label-dot.green{background:var(--green)}
+  .label-dot.blue{background:var(--blue)}
 
   /* Orientation-aware stopwatch */
   .time-wrap{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:2;pointer-events:none;}
   .time-rot{transform-origin:center;}
-  .portrait .time-rot{ transform: rotate(-90deg); }  /* portrait: bottom -> top */
+  .portrait .time-rot{ transform: rotate(-90deg); }  /* portrait: bottom→top */
   .landscape .time-rot{ transform: none; }           /* landscape: horizontal */
-  .time{display:block;line-height:0.9;font-weight:900;letter-spacing:0.02em;white-space:nowrap;text-shadow:0 0 22px rgba(0,0,0,.7);}
+  .time{display:block;line-height:0.9;font-weight:900;letter-spacing:0.02em;white-space:nowrap;
+    text-shadow:0 0 22px rgba(0,0,0,.7);}
 
   /* Blink overlays */
   .blink-mask{position:absolute;inset:0;background:#000;pointer-events:none;z-index:5;display:none;}
 
   /* End-of-timer black/red blink */
-  .end-blink{position:absolute;inset:0;pointer-events:none;z-index:6;background:var(--bg);animation:endBlink .5s steps(2,jump-none) infinite;display:none;}
+  .end-blink{position:absolute;inset:0;pointer-events:none;z-index:6;background:var(--bg);
+    animation:endBlink .5s steps(2,jump-none) infinite;display:none;}
   @keyframes endBlink{0%{background:var(--bg)}50%{background:var(--danger)}100%{background:var(--danger)}}
 
   /* Bottom info bar */
-  .bar{flex:0 0 auto;padding:10px 14px;display:flex;align-items:center;gap:10px;background:rgba(0,0,0,.55);backdrop-filter:blur(4px);border-top:1px solid rgba(255,255,255,.08);font-size:clamp(12px,2.4vw,18px);z-index:4;}
-  .pill{padding:6px 10px;border:1px solid rgba(255,255,255,.18);border-radius:999px;display:inline-flex;align-items:center;gap:8px;white-space:nowrap;}
+  .bar{flex:0 0 auto;padding:10px 14px;display:flex;align-items:center;gap:10px;
+    background:rgba(0,0,0,.55);backdrop-filter:blur(4px);border-top:1px solid rgba(255,255,255,.08);
+    font-size:clamp(12px,2.4vw,18px);z-index:4;}
+  .pill{padding:6px 10px;border:1px solid rgba(255,255,255,.18);border-radius:999px;
+    display:inline-flex;align-items:center;gap:8px;white-space:nowrap;}
   .dot{width:10px;height:10px;border-radius:50%;display:inline-block;}
   .dot.yellow{background:var(--yellow)} .dot.green{background:var(--green)} .dot.blue{background:var(--blue)}
   .bar .spacer{flex:1}
 
   /* Start slab (left 20%) */
   .start-slab{
-    position:absolute; left:0; top:0; bottom:0; width:20%;
-    display:flex; align-items:center; justify-content:center;
-    background:rgba(102,209,255,0.07);
-    border-right:1px solid rgba(255,255,255,.12);
-    cursor:pointer; user-select:none; z-index:7;
+    position:absolute;left:0;top:0;bottom:0;width:20%;
+    display:flex;align-items:center;justify-content:center;
+    background:rgba(102,209,255,0.07);border-right:1px solid rgba(255,255,255,.12);
+    cursor:pointer;user-select:none;z-index:7;
   }
   .start-slab button{
-    width:88%; max-width:340px;
-    padding:18px 12px; border-radius:16px;
-    border:2px solid rgba(255,255,255,.28);
-    background:var(--blue); color:#002235;
-    font-weight:900; font-size:clamp(18px,3.8vw,28px);
-    box-shadow:0 10px 30px rgba(0,0,0,.45);
-    cursor:pointer;
+    width:88%;max-width:340px;padding:18px 12px;border-radius:16px;
+    border:2px solid rgba(255,255,255,.28);background:var(--blue);color:#002235;
+    font-weight:900;font-size:clamp(18px,3.8vw,28px);box-shadow:0 10px 30px rgba(0,0,0,.45);cursor:pointer;
   }
   .start-hidden{display:none;}
 
-  /* Settings FAB (auto-hide) */
+  /* Settings FAB (auto-hide: show 5s after tap) */
   .fab{
     position:fixed;right:18px;bottom:calc(64px + 18px);width:64px;height:64px;border-radius:50%;
     background:var(--blue);color:#00324a;display:flex;align-items:center;justify-content:center;
     font-weight:900;font-size:28px;box-shadow:0 8px 24px rgba(0,0,0,.45);cursor:pointer;user-select:none;
-    z-index:8;border:2px solid rgba(255,255,255,.3);
+    z-index:10;border:2px solid rgba(255,255,255,.3);
     opacity:0;pointer-events:none;transition:opacity .2s ease;
   }
   .fab.show{opacity:1;pointer-events:auto;}
   .fab:active{transform:scale(.98)}
 
   /* Settings sheet */
-  .sheet{position:fixed;inset:0;background:rgba(0,0,0,.66);display:none;align-items:center;justify-content:center;z-index:9;}
+  .sheet{position:fixed;inset:0;background:rgba(0,0,0,.66);display:none;align-items:center;justify-content:center;z-index:11;}
   .sheet.open{display:flex}
   .card{width:min(860px,92vw);background:#0b0b0b;color:var(--fg);border:1px solid rgba(255,255,255,.12);border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.6);padding:18px;}
   .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;}
@@ -108,17 +115,14 @@
   .btn.warn{background:#1a0000;color:#ffb3b3;border-color:#551111}
   .hint{opacity:.7;font-size:12px}
 
-  /* Stamps */
-  .stamps{position:fixed;right:10px;top:8px;z-index:10;text-align:right;}
-  .stamp{font-size:12px;opacity:0.85;letter-spacing:0.4px;background:rgba(0,0,0,0.35);padding:2px 6px;margin-top:2px;border-radius:8px;border:1px solid rgba(255,255,255,0.12);}
+  /* Single stamp (v6) */
+  .stamp{position:fixed;right:10px;top:8px;z-index:12;font-size:12px;opacity:0.85;letter-spacing:0.4px;
+    background:rgba(0,0,0,0.35);padding:2px 6px;border-radius:8px;border:1px solid rgba(255,255,255,0.12);}
 </style>
 </head>
 <body>
   <div class="app" id="app">
-    <div class="stamps">
-      <div class="stamp">09.08.2025 - v4 - Jimmy James</div>
-      <div class="stamp">08.09.2025 - v5 - Jimmy James</div>
-    </div>
+    <div class="stamp">08.09.2025 - v6 - Jimmy James</div>
 
     <div class="field" id="field">
       <!-- Accumulating segments -->
@@ -133,9 +137,16 @@
         <div class="marker yellow" id="markerY"></div>
         <div class="marker green"  id="markerG"></div>
         <div class="marker blue"   id="markerB"></div>
-        <div class="marker-label"  id="labelY">3:00 (3:00)</div>
-        <div class="marker-label"  id="labelG">17:00 (14:00)</div>
-        <div class="marker-label"  id="labelB">20:00 (3:00)</div>
+
+        <div class="marker-label left"  id="labelY">
+          <span class="label-dot yellow"></span><span id="labelYText">3:00</span>
+        </div>
+        <div class="marker-label left"  id="labelG">
+          <span class="label-dot green"></span><span id="labelGText">17:00</span>
+        </div>
+        <div class="marker-label right" id="labelB">
+          <span class="label-dot blue"></span><span id="labelBText">20:00</span>
+        </div>
       </div>
 
       <!-- Blink overlays -->
@@ -149,7 +160,7 @@
         </div>
       </div>
 
-      <!-- Big left start slab -->
+      <!-- Big left START slab -->
       <div class="start-slab" id="startSlab">
         <button id="startBtn">START</button>
       </div>
@@ -164,10 +175,10 @@
       <span class="pill" title="Total time"><strong id="totalShow">20:00</strong></span>
     </div>
 
-    <!-- Settings FAB (auto-hide) -->
+    <!-- Auto-hiding Settings FAB -->
     <div class="fab" id="settingsFab" title="Settings">⚙️</div>
 
-    <!-- Settings sheet -->
+    <!-- Settings -->
     <div class="sheet" id="sheet">
       <div class="card">
         <h2 style="margin:6px 2px 12px 2px;">Improv Timer Settings</h2>
@@ -253,6 +264,9 @@
   const labelY  = document.getElementById('labelY');
   const labelG  = document.getElementById('labelG');
   const labelB  = document.getElementById('labelB');
+  const labelYText = document.getElementById('labelYText');
+  const labelGText = document.getElementById('labelGText');
+  const labelBText = document.getElementById('labelBText');
 
   const blinkMask = document.getElementById('blinkMask');
   const endBlink = document.getElementById('endBlink');
@@ -315,10 +329,7 @@
         return (rotW <= maxRotW) && (rotH <= maxRotH);
       };
       while (fits(hi) && hi < rect.height*3) hi *= 1.25;
-      while (hi - lo > 1){
-        const mid = Math.floor((lo+hi)/2);
-        if (fits(mid)) lo = mid; else hi = mid;
-      }
+      while (hi - lo > 1){ const mid = Math.floor((lo+hi)/2); if (fits(mid)) lo = mid; else hi = mid; }
       clock.style.fontSize = lo + 'px';
     } else {
       const maxW = rect.width * 0.98;
@@ -330,10 +341,7 @@
         return (H <= maxH) && (W <= maxW);
       };
       while (fits(hi) && hi < rect.height*3) hi *= 1.25;
-      while (hi - lo > 1){
-        const mid = Math.floor((lo+hi)/2);
-        if (fits(mid)) lo = mid; else hi = mid;
-      }
+      while (hi - lo > 1){ const mid = Math.floor((lo+hi)/2); if (fits(mid)) lo = mid; else hi = mid; }
       clock.style.fontSize = lo + 'px';
     }
   }
@@ -348,42 +356,39 @@
     };
   }
 
+  /* ---------- Formatters ---------- */
   function fmtSS(t){
     const m = Math.floor(t/60);
     const s = Math.floor(t%60);
     return `${m}:${s.toString().padStart(2,'0')}`;
   }
-  function fmtLabel(t){ return fmtSS(t); }
 
   /* ---------- Labels & markers ---------- */
   function positionMarkers(){
-    const rect = field.getBoundingClientRect();
-    if (rect.width <= 0) return;
-
     const yPct = totalSec ? (ySec/totalSec)*100 : 0;
     const gPct = totalSec ? ((ySec+gSec)/totalSec)*100 : 0;
     const bPct = 100;
 
     markerY.style.left = `calc(${yPct}% - 1px)`;
     markerG.style.left = `calc(${gPct}% - 1px)`;
-    markerB.style.left = `calc(${bPct}% - 1px)`; /* far right */
+    markerB.style.left = `calc(${bPct}% - 1px)`;
 
-    // Label texts: cumulative (segment)
-    labelY.textContent = `${fmtSS(ySec)} (${fmtSS(ySec)})`;
-    labelG.textContent = `${fmtSS(ySec+gSec)} (${fmtSS(gSec)})`;
-    labelB.textContent = `${fmtSS(totalSec)} (${fmtSS(bSec)})`;
+    // Update texts (cumulative endpoints only)
+    labelYText.textContent = fmtSS(ySec);
+    labelGText.textContent = fmtSS(ySec+gSec);
+    labelBText.textContent = fmtSS(totalSec);
 
-    // Label positions (just to the left of each line, at bottom)
+    // Position labels: left of yellow/green, right of blue
     labelY.style.left = `calc(${yPct}% - 8px)`;
     labelG.style.left = `calc(${gPct}% - 8px)`;
-    labelB.style.left = `calc(${bPct}% - 8px)`;
+    labelB.style.left = `calc(${bPct}% + 8px)`;
   }
 
   function refreshInfoBar(){
-    yShow.textContent = fmtLabel(ySec);
-    gShow.textContent = fmtLabel(gSec);
-    bShow.textContent = fmtLabel(bSec);
-    totalShow.textContent = fmtLabel(totalSec);
+    yShow.textContent = fmtSS(ySec);
+    gShow.textContent = fmtSS(gSec);
+    bShow.textContent = fmtSS(bSec);
+    totalShow.textContent = fmtSS(totalSec);
   }
 
   /* ---------- Segments fill ---------- */
@@ -439,7 +444,7 @@
         clock.textContent = fmtSS(elapsed);
         fitClockThrottled();
         updateSegments(elapsed);
-        handleBlueBlinkScheduling();
+        handleBlueBlinkScheduling(); /* 0.5s on / 0.5s off blinks in blue */
         if (elapsed === totalSec){
           running = false;
           endBlink.style.display = 'block';
@@ -450,7 +455,7 @@
     rafId = requestAnimationFrame(tick);
   }
 
-  /* ---------- Blue phase blinks: 0.5s color, 0.5s black ---------- */
+  /* ---------- Blue phase blinks (remaining minutes): 0.5s color, 0.5s black ---------- */
   function atBlueBoundary(){
     const passed = elapsed;
     const blueStart = ySec + gSec;
@@ -467,6 +472,7 @@
     const wholeMinLeft = Math.ceil(remaining / 60);
     const atBoundary = (remaining % 60 === 0);
     if (atBoundary && wholeMinLeft > 0 && !scheduledBlueBlinks.has(wholeMinLeft)){
+      // e.g., with 3-minute blue: fire at 17:00 (3), 18:00 (2), 19:00 (1)
       scheduledBlueBlinks.add(wholeMinLeft);
       await queueBlinkSequence(wholeMinLeft);
     }
@@ -486,33 +492,32 @@
     blinking = false;
   }
 
-  /* ---------- Settings: auto-hide FAB (show 5s after any tap/click) ---------- */
+  /* ---------- Settings: auto-hide FAB (show 5s after any tap) ---------- */
   let fabHideTimer = null;
   function showFabTemporarily(){
-    if (sheet.classList.contains('open')) return; // always visible while open handled elsewhere
+    if (sheet.classList.contains('open')) return;
     fab.classList.add('show');
     if (fabHideTimer) clearTimeout(fabHideTimer);
     fabHideTimer = setTimeout(()=>{ fab.classList.remove('show'); }, 5000);
   }
 
-  // Show FAB on any click/tap inside field (but ignore when clicking start slab or open sheet)
+  // Show FAB on any click/tap (outside the open sheet)
   document.addEventListener('pointerdown', (e)=>{
     const path = e.composedPath ? e.composedPath() : [];
-    if (path.includes(sheet)) return; // settings open / clicking sheet
+    if (path.includes(sheet)) return;
     showFabTemporarily();
   });
 
   // FAB toggles settings; clicking again saves/returns
   const openSettings = ()=>{
     sheet.classList.add('open');
-    fab.classList.add('show'); // stay visible while open
+    fab.classList.add('show');
     if (fabHideTimer) { clearTimeout(fabHideTimer); fabHideTimer=null; }
   };
   const closeSettings = ()=>{
     sheet.classList.remove('open');
-    showFabTemporarily(); // briefly show again
+    showFabTemporarily();
   };
-
   fab.addEventListener('click', ()=>{
     if (sheet.classList.contains('open')){ saveTimes(); closeSettings(); }
     else openSettings();
@@ -522,7 +527,7 @@
   pauseBtn.addEventListener('click', ()=>{ pause(); });
   returnBtn.addEventListener('click', ()=>{ saveTimes(); closeSettings(); });
 
-  // Triple-click reset in settings
+  // Triple-click reset
   let clicks=0, clickTimer=null;
   resetBtn.addEventListener('click', ()=>{
     clicks++;
@@ -567,7 +572,6 @@
       if (kind==='m') bSec = clamp(bSec + delta*60); else bSec = clamp(bSec + delta);
     }
     updateDisplayVals();
-    // Update both bar & markers live while editing
     totalSec = ySec + gSec + bSec;
     refreshInfoBar();
     positionMarkers();
@@ -590,19 +594,17 @@
   updateSegments(0);
   clock.textContent = fmtSS(0);
   fitClock();
-  // Show FAB on first load for a moment so you know it's there
-  showFabTemporarily();
+  showFabTemporarily(); // reveal ⚙️ briefly on load
 
   window.addEventListener('resize', fitClockThrottled);
   window.addEventListener('orientationchange', fitClockThrottled);
 
-  // Optional keyboard helpers (rehearsal on laptop)
+  // Optional keyboard helpers
   window.addEventListener('keydown', (e)=>{
     if (e.key === ' '){ e.preventDefault(); running ? pause() : start(); }
     else if (e.key.toLowerCase()==='s'){ sheet.classList.contains('open') ? (saveTimes(), closeSettings()) : openSettings(); }
     else if (e.key.toLowerCase()==='r'){ pause(); resetElapsed(); }
   });
-
 })();
 </script>
 </body>
