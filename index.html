@@ -19,7 +19,7 @@
 
   .field{position:relative;flex:1 1 auto;overflow:hidden;background:var(--bg);}
 
-  /* NEW: stacked segments that accumulate (yellow → green → blue) */
+  /* Accumulating segments (yellow -> green -> blue) */
   .segments{position:absolute;inset:0;display:flex;pointer-events:none;z-index:1;}
   .seg{height:100%;width:0}
   .seg.yellow{background:var(--yellow)}
@@ -27,10 +27,24 @@
   .seg.blue{background:var(--blue)}
   .right-end-line{position:absolute;top:0;bottom:0;right:0;width:2px;background:var(--blue);opacity:.95;pointer-events:none;z-index:2;}
 
-  /* Rotated stopwatch (bottom→top) */
+  /* Stopwatch: wrapper; we toggle rotation based on orientation */
   .time-wrap{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:3;pointer-events:none;}
-  .time-rot{transform:rotate(-90deg);transform-origin:center;}
-  .time{display:block;line-height:0.9;font-weight:900;letter-spacing:0.02em;white-space:nowrap;text-shadow:0 0 22px rgba(0,0,0,.7);}
+  .time-rot{transform-origin:center;}
+  .portrait .time-rot{ transform: rotate(-90deg); }   /* bottom->top in portrait */
+  .landscape .time-rot{ transform: none; }            /* normal in landscape */
+  .time{
+    display:block;line-height:0.9;font-weight:900;letter-spacing:0.02em;white-space:nowrap;
+    text-shadow:0 0 22px rgba(0,0,0,.7);
+    /* font-size set via JS to maximize coverage */
+  }
+
+  /* Stamp (top-right) */
+  .stamp{
+    position:fixed; right:10px; top:8px; z-index:10;
+    font-size:12px; opacity:0.85; letter-spacing:0.4px;
+    background:rgba(0,0,0,0.35); padding:4px 8px; border-radius:8px;
+    border:1px solid rgba(255,255,255,0.12);
+  }
 
   /* Blink overlays */
   .blink-mask{position:absolute;inset:0;background:#000;pointer-events:none;z-index:5;display:none;}
@@ -88,6 +102,8 @@
 </head>
 <body>
   <div class="app" id="app">
+    <div class="stamp">09.08.2025 -  v4 - Jimmy James</div>
+
     <div class="field" id="field">
       <!-- Accumulating segments -->
       <div class="segments">
@@ -101,7 +117,7 @@
       <div class="blink-mask" id="blinkMask"></div>
       <div class="end-blink" id="endBlink"></div>
 
-      <!-- Rotated clock -->
+      <!-- Stopwatch (orientation-aware) -->
       <div class="time-wrap">
         <div class="time-rot">
           <span class="time" id="clock">0:00</span>
@@ -192,6 +208,7 @@
 
 <script>
 (function(){
+  const root = document.body;   // we'll toggle .portrait / .landscape on this
   const clock = document.getElementById('clock');
   const field = document.getElementById('field');
   const segY = document.getElementById('segY');
@@ -234,29 +251,58 @@
   let scheduledBlueBlinks = new Set();
   let blinking = false;
 
-  /* ---------- Fit rotated clock (maximize visibility bottom→top) ---------- */
+  /* ---------- Orientation handling ---------- */
+  function applyOrientationClass(){
+    const portrait = window.innerHeight >= window.innerWidth;
+    root.classList.toggle('portrait', portrait);
+    root.classList.toggle('landscape', !portrait);
+  }
+
+  /* ---------- Font fitting (orientation-aware) ---------- */
   function fitClock(){
     const rect = field.getBoundingClientRect();
     if (rect.width <= 0 || rect.height <= 0) return;
 
-    const maxRotWidth  = rect.width  * 0.98;
-    const maxRotHeight = rect.height * 0.96;
+    const isPortrait = root.classList.contains('portrait');
 
-    let lo = 4, hi = Math.max(12, rect.height);
-    const fits = (px)=>{
-      clock.style.fontSize = px + 'px';
-      const W = clock.scrollWidth, H = clock.scrollHeight;
-      const rotW = H, rotH = W; // after -90° rotation
-      return (rotW <= maxRotWidth) && (rotH <= maxRotHeight);
-    };
-    while (fits(hi) && hi < rect.height*3) hi *= 1.25;
-    while (hi - lo > 1){
-      const mid = Math.floor((lo + hi)/2);
-      if (fits(mid)) lo = mid; else hi = mid;
+    if (isPortrait){
+      // Rotated -90°: rotated width = unrotated height; rotated height = unrotated width
+      const maxRotW = rect.width * 0.98;
+      const maxRotH = rect.height * 0.96;
+      let lo=4, hi=Math.max(12, rect.height);
+
+      const fits = (px)=>{
+        clock.style.fontSize = px + 'px';
+        const W = clock.scrollWidth, H = clock.scrollHeight;
+        const rotW = H, rotH = W;
+        return (rotW <= maxRotW) && (rotH <= maxRotH);
+      };
+      while (fits(hi) && hi < rect.height*3) hi *= 1.25;
+      while (hi - lo > 1){
+        const mid = Math.floor((lo+hi)/2);
+        if (fits(mid)) lo = mid; else hi = mid;
+      }
+      clock.style.fontSize = lo + 'px';
+    } else {
+      // No rotation: maximize font to fill height but not overflow width
+      const maxW = rect.width * 0.98;
+      const maxH = rect.height * 0.92;
+      let lo=4, hi=Math.max(12, rect.height);
+
+      const fits = (px)=>{
+        clock.style.fontSize = px + 'px';
+        const W = clock.scrollWidth, H = clock.scrollHeight;
+        return (H <= maxH) && (W <= maxW);
+      };
+      while (fits(hi) && hi < rect.height*3) hi *= 1.25;
+      while (hi - lo > 1){
+        const mid = Math.floor((lo+hi)/2);
+        if (fits(mid)) lo = mid; else hi = mid;
+      }
+      clock.style.fontSize = lo + 'px';
     }
-    clock.style.fontSize = lo + 'px';
   }
-  const fitClockThrottled = throttle(fitClock, 50);
+  const fitClockThrottled = throttle(()=>{ applyOrientationClass(); fitClock(); }, 50);
 
   function throttle(fn, ms){
     let last = 0, t;
@@ -372,11 +418,9 @@
     while (blinking) await sleep(40);
     blinking = true;
     for (let i=0;i<n;i++){
-      // 0.5s show color (mask hidden)
-      blinkMask.style.display = 'none';
+      blinkMask.style.display = 'none';  // 0.5s color
       await sleep(500);
-      // 0.5s black (mask shown)
-      blinkMask.style.display = 'block';
+      blinkMask.style.display = 'block'; // 0.5s black
       await sleep(500);
     }
     blinkMask.style.display = 'none';
@@ -387,13 +431,13 @@
   startBtn.addEventListener('click', ()=>{ closeSettings(); start(); });
 
   // Settings FAB toggles; clicking again saves/returns
+  const openSettings = ()=> sheet.classList.add('open');
+  const closeSettings = ()=> sheet.classList.remove('open');
+
   fab.addEventListener('click', ()=>{
     if (sheet.classList.contains('open')){ saveTimes(); closeSettings(); }
     else openSettings();
   });
-
-  const openSettings = ()=> sheet.classList.add('open');
-  const closeSettings = ()=> sheet.classList.remove('open');
 
   pauseBtn.addEventListener('click', ()=>{ pause(); });
   returnBtn.addEventListener('click', ()=>{ saveTimes(); closeSettings(); });
@@ -439,18 +483,19 @@
     }
     updateDisplayVals();
     refreshLabels();
-    updateSegments(elapsed); // keep visual consistent while editing
+    updateSegments(elapsed);
   }
   document.querySelectorAll('.btnStep').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       const seg = btn.getAttribute('data-seg');
       const kind = btn.getAttribute('data-kind');
       const d = parseInt(btn.getAttribute('data-d'),10);
-      adjust(seg, kind, d);
+      adjust(''+seg, ''+kind, d);
     });
   });
 
   // Init
+  applyOrientationClass();
   updateDisplayVals();
   refreshLabels();
   updateSegments(0);
@@ -458,7 +503,9 @@
   fitClock();
 
   window.addEventListener('resize', fitClockThrottled);
-  // Optional keyboard helpers for rehearsal
+  window.addEventListener('orientationchange', fitClockThrottled);
+
+  // Optional keyboard helpers
   window.addEventListener('keydown', (e)=>{
     if (e.key === ' '){ e.preventDefault(); running ? pause() : start(); }
     else if (e.key.toLowerCase()==='s'){ sheet.classList.contains('open') ? (saveTimes(), closeSettings()) : openSettings(); }
@@ -468,3 +515,4 @@
 </script>
 </body>
 </html>
+
