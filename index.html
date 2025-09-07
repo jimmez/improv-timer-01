@@ -19,32 +19,32 @@
 
   .field{position:relative;flex:1 1 auto;overflow:hidden;background:var(--bg);}
 
-  /* Accumulating segments (yellow -> green -> blue) */
+  /* Segments (accumulating) */
   .segments{position:absolute;inset:0;display:flex;pointer-events:none;z-index:1;}
   .seg{height:100%;width:0}
   .seg.yellow{background:var(--yellow)}
   .seg.green{background:var(--green)}
   .seg.blue{background:var(--blue)}
-  .right-end-line{position:absolute;top:0;bottom:0;right:0;width:2px;background:var(--blue);opacity:.95;pointer-events:none;z-index:2;}
 
-  /* Stopwatch: wrapper; we toggle rotation based on orientation */
-  .time-wrap{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:3;pointer-events:none;}
+  /* Marker lines + labels */
+  .markers{position:absolute;inset:0;pointer-events:none;z-index:3;}
+  .marker{position:absolute;top:0;bottom:0;width:2px;opacity:.95;}
+  .marker.yellow{background:var(--yellow)}
+  .marker.green{background:var(--green)}
+  .marker.blue{background:var(--blue)}
+  .marker-label{
+    position:absolute;bottom:6px;
+    font-size:12px;opacity:0.9;background:rgba(0,0,0,.35);
+    padding:2px 6px;border-radius:6px;border:1px solid rgba(255,255,255,.12);
+    transform: translateX(-8px);white-space:nowrap;
+  }
+
+  /* Orientation-aware stopwatch */
+  .time-wrap{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:2;pointer-events:none;}
   .time-rot{transform-origin:center;}
-  .portrait .time-rot{ transform: rotate(-90deg); }   /* bottom->top in portrait */
-  .landscape .time-rot{ transform: none; }            /* normal in landscape */
-  .time{
-    display:block;line-height:0.9;font-weight:900;letter-spacing:0.02em;white-space:nowrap;
-    text-shadow:0 0 22px rgba(0,0,0,.7);
-    /* font-size set via JS to maximize coverage */
-  }
-
-  /* Stamp (top-right) */
-  .stamp{
-    position:fixed; right:10px; top:8px; z-index:10;
-    font-size:12px; opacity:0.85; letter-spacing:0.4px;
-    background:rgba(0,0,0,0.35); padding:4px 8px; border-radius:8px;
-    border:1px solid rgba(255,255,255,0.12);
-  }
+  .portrait .time-rot{ transform: rotate(-90deg); }  /* portrait: bottom -> top */
+  .landscape .time-rot{ transform: none; }           /* landscape: horizontal */
+  .time{display:block;line-height:0.9;font-weight:900;letter-spacing:0.02em;white-space:nowrap;text-shadow:0 0 22px rgba(0,0,0,.7);}
 
   /* Blink overlays */
   .blink-mask{position:absolute;inset:0;background:#000;pointer-events:none;z-index:5;display:none;}
@@ -53,13 +53,14 @@
   .end-blink{position:absolute;inset:0;pointer-events:none;z-index:6;background:var(--bg);animation:endBlink .5s steps(2,jump-none) infinite;display:none;}
   @keyframes endBlink{0%{background:var(--bg)}50%{background:var(--danger)}100%{background:var(--danger)}}
 
+  /* Bottom info bar */
   .bar{flex:0 0 auto;padding:10px 14px;display:flex;align-items:center;gap:10px;background:rgba(0,0,0,.55);backdrop-filter:blur(4px);border-top:1px solid rgba(255,255,255,.08);font-size:clamp(12px,2.4vw,18px);z-index:4;}
   .pill{padding:6px 10px;border:1px solid rgba(255,255,255,.18);border-radius:999px;display:inline-flex;align-items:center;gap:8px;white-space:nowrap;}
   .dot{width:10px;height:10px;border-radius:50%;display:inline-block;}
   .dot.yellow{background:var(--yellow)} .dot.green{background:var(--green)} .dot.blue{background:var(--blue)}
   .bar .spacer{flex:1}
 
-  /* Start button slab (left 20%) */
+  /* Start slab (left 20%) */
   .start-slab{
     position:absolute; left:0; top:0; bottom:0; width:20%;
     display:flex; align-items:center; justify-content:center;
@@ -78,10 +79,18 @@
   }
   .start-hidden{display:none;}
 
-  /* Settings FAB and Sheet */
-  .fab{position:fixed;right:18px;bottom:calc(64px + 18px);width:64px;height:64px;border-radius:50%;background:var(--blue);color:#00324a;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:28px;box-shadow:0 8px 24px rgba(0,0,0,.45);cursor:pointer;user-select:none;z-index:8;border:2px solid rgba(255,255,255,.3);}
+  /* Settings FAB (auto-hide) */
+  .fab{
+    position:fixed;right:18px;bottom:calc(64px + 18px);width:64px;height:64px;border-radius:50%;
+    background:var(--blue);color:#00324a;display:flex;align-items:center;justify-content:center;
+    font-weight:900;font-size:28px;box-shadow:0 8px 24px rgba(0,0,0,.45);cursor:pointer;user-select:none;
+    z-index:8;border:2px solid rgba(255,255,255,.3);
+    opacity:0;pointer-events:none;transition:opacity .2s ease;
+  }
+  .fab.show{opacity:1;pointer-events:auto;}
   .fab:active{transform:scale(.98)}
 
+  /* Settings sheet */
   .sheet{position:fixed;inset:0;background:rgba(0,0,0,.66);display:none;align-items:center;justify-content:center;z-index:9;}
   .sheet.open{display:flex}
   .card{width:min(860px,92vw);background:#0b0b0b;color:var(--fg);border:1px solid rgba(255,255,255,.12);border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.6);padding:18px;}
@@ -98,11 +107,18 @@
   .btn.primary{background:var(--blue);color:#002235}
   .btn.warn{background:#1a0000;color:#ffb3b3;border-color:#551111}
   .hint{opacity:.7;font-size:12px}
+
+  /* Stamps */
+  .stamps{position:fixed;right:10px;top:8px;z-index:10;text-align:right;}
+  .stamp{font-size:12px;opacity:0.85;letter-spacing:0.4px;background:rgba(0,0,0,0.35);padding:2px 6px;margin-top:2px;border-radius:8px;border:1px solid rgba(255,255,255,0.12);}
 </style>
 </head>
 <body>
   <div class="app" id="app">
-    <div class="stamp">09.08.2025 -  v4 - Jimmy James</div>
+    <div class="stamps">
+      <div class="stamp">09.08.2025 - v4 - Jimmy James</div>
+      <div class="stamp">08.09.2025 - v5 - Jimmy James</div>
+    </div>
 
     <div class="field" id="field">
       <!-- Accumulating segments -->
@@ -111,13 +127,22 @@
         <div class="seg green" id="segG"></div>
         <div class="seg blue"   id="segB"></div>
       </div>
-      <div class="right-end-line"></div>
+
+      <!-- Marker lines + labels -->
+      <div class="markers">
+        <div class="marker yellow" id="markerY"></div>
+        <div class="marker green"  id="markerG"></div>
+        <div class="marker blue"   id="markerB"></div>
+        <div class="marker-label"  id="labelY">3:00 (3:00)</div>
+        <div class="marker-label"  id="labelG">17:00 (14:00)</div>
+        <div class="marker-label"  id="labelB">20:00 (3:00)</div>
+      </div>
 
       <!-- Blink overlays -->
       <div class="blink-mask" id="blinkMask"></div>
       <div class="end-blink" id="endBlink"></div>
 
-      <!-- Stopwatch (orientation-aware) -->
+      <!-- Stopwatch -->
       <div class="time-wrap">
         <div class="time-rot">
           <span class="time" id="clock">0:00</span>
@@ -139,13 +164,16 @@
       <span class="pill" title="Total time"><strong id="totalShow">20:00</strong></span>
     </div>
 
-    <!-- Settings -->
+    <!-- Settings FAB (auto-hide) -->
     <div class="fab" id="settingsFab" title="Settings">⚙️</div>
+
+    <!-- Settings sheet -->
     <div class="sheet" id="sheet">
       <div class="card">
         <h2 style="margin:6px 2px 12px 2px;">Improv Timer Settings</h2>
 
         <div class="row">
+          <!-- Yellow -->
           <div class="group">
             <h4><span class="dot yellow"></span> Yellow</h4>
             <div class="counter">
@@ -162,6 +190,7 @@
             </div>
           </div>
 
+          <!-- Green -->
           <div class="group">
             <h4><span class="dot green"></span> Green</h4>
             <div class="counter">
@@ -178,6 +207,7 @@
             </div>
           </div>
 
+          <!-- Light Blue -->
           <div class="group">
             <h4><span class="dot blue"></span> Light Blue</h4>
             <div class="counter">
@@ -208,12 +238,21 @@
 
 <script>
 (function(){
-  const root = document.body;   // we'll toggle .portrait / .landscape on this
+  const root = document.body;
+
   const clock = document.getElementById('clock');
   const field = document.getElementById('field');
+
   const segY = document.getElementById('segY');
   const segG = document.getElementById('segG');
   const segB = document.getElementById('segB');
+
+  const markerY = document.getElementById('markerY');
+  const markerG = document.getElementById('markerG');
+  const markerB = document.getElementById('markerB');
+  const labelY  = document.getElementById('labelY');
+  const labelG  = document.getElementById('labelG');
+  const labelB  = document.getElementById('labelB');
 
   const blinkMask = document.getElementById('blinkMask');
   const endBlink = document.getElementById('endBlink');
@@ -266,11 +305,9 @@
     const isPortrait = root.classList.contains('portrait');
 
     if (isPortrait){
-      // Rotated -90°: rotated width = unrotated height; rotated height = unrotated width
       const maxRotW = rect.width * 0.98;
       const maxRotH = rect.height * 0.96;
       let lo=4, hi=Math.max(12, rect.height);
-
       const fits = (px)=>{
         clock.style.fontSize = px + 'px';
         const W = clock.scrollWidth, H = clock.scrollHeight;
@@ -284,11 +321,9 @@
       }
       clock.style.fontSize = lo + 'px';
     } else {
-      // No rotation: maximize font to fill height but not overflow width
       const maxW = rect.width * 0.98;
       const maxH = rect.height * 0.92;
       let lo=4, hi=Math.max(12, rect.height);
-
       const fits = (px)=>{
         clock.style.fontSize = px + 'px';
         const W = clock.scrollWidth, H = clock.scrollHeight;
@@ -320,15 +355,38 @@
   }
   function fmtLabel(t){ return fmtSS(t); }
 
-  function refreshLabels(){
+  /* ---------- Labels & markers ---------- */
+  function positionMarkers(){
+    const rect = field.getBoundingClientRect();
+    if (rect.width <= 0) return;
+
+    const yPct = totalSec ? (ySec/totalSec)*100 : 0;
+    const gPct = totalSec ? ((ySec+gSec)/totalSec)*100 : 0;
+    const bPct = 100;
+
+    markerY.style.left = `calc(${yPct}% - 1px)`;
+    markerG.style.left = `calc(${gPct}% - 1px)`;
+    markerB.style.left = `calc(${bPct}% - 1px)`; /* far right */
+
+    // Label texts: cumulative (segment)
+    labelY.textContent = `${fmtSS(ySec)} (${fmtSS(ySec)})`;
+    labelG.textContent = `${fmtSS(ySec+gSec)} (${fmtSS(gSec)})`;
+    labelB.textContent = `${fmtSS(totalSec)} (${fmtSS(bSec)})`;
+
+    // Label positions (just to the left of each line, at bottom)
+    labelY.style.left = `calc(${yPct}% - 8px)`;
+    labelG.style.left = `calc(${gPct}% - 8px)`;
+    labelB.style.left = `calc(${bPct}% - 8px)`;
+  }
+
+  function refreshInfoBar(){
     yShow.textContent = fmtLabel(ySec);
     gShow.textContent = fmtLabel(gSec);
     bShow.textContent = fmtLabel(bSec);
-    totalSec = ySec + gSec + bSec;
     totalShow.textContent = fmtLabel(totalSec);
   }
 
-  /* ---------- Accumulating segments ---------- */
+  /* ---------- Segments fill ---------- */
   function updateSegments(sec){
     const pctTotal = totalSec ? (sec/totalSec)*100 : 0;
     const yPct = totalSec ? (ySec/totalSec)*100 : 0;
@@ -344,6 +402,7 @@
     segB.style.width = bW + '%';
   }
 
+  /* ---------- Timer control ---------- */
   function start(){
     if (running || totalSec === 0) return;
     running = true;
@@ -427,22 +486,43 @@
     blinking = false;
   }
 
-  /* ---------- UI wiring ---------- */
-  startBtn.addEventListener('click', ()=>{ closeSettings(); start(); });
+  /* ---------- Settings: auto-hide FAB (show 5s after any tap/click) ---------- */
+  let fabHideTimer = null;
+  function showFabTemporarily(){
+    if (sheet.classList.contains('open')) return; // always visible while open handled elsewhere
+    fab.classList.add('show');
+    if (fabHideTimer) clearTimeout(fabHideTimer);
+    fabHideTimer = setTimeout(()=>{ fab.classList.remove('show'); }, 5000);
+  }
 
-  // Settings FAB toggles; clicking again saves/returns
-  const openSettings = ()=> sheet.classList.add('open');
-  const closeSettings = ()=> sheet.classList.remove('open');
+  // Show FAB on any click/tap inside field (but ignore when clicking start slab or open sheet)
+  document.addEventListener('pointerdown', (e)=>{
+    const path = e.composedPath ? e.composedPath() : [];
+    if (path.includes(sheet)) return; // settings open / clicking sheet
+    showFabTemporarily();
+  });
+
+  // FAB toggles settings; clicking again saves/returns
+  const openSettings = ()=>{
+    sheet.classList.add('open');
+    fab.classList.add('show'); // stay visible while open
+    if (fabHideTimer) { clearTimeout(fabHideTimer); fabHideTimer=null; }
+  };
+  const closeSettings = ()=>{
+    sheet.classList.remove('open');
+    showFabTemporarily(); // briefly show again
+  };
 
   fab.addEventListener('click', ()=>{
     if (sheet.classList.contains('open')){ saveTimes(); closeSettings(); }
     else openSettings();
   });
 
+  // Settings buttons
   pauseBtn.addEventListener('click', ()=>{ pause(); });
   returnBtn.addEventListener('click', ()=>{ saveTimes(); closeSettings(); });
 
-  // Triple-click reset
+  // Triple-click reset in settings
   let clicks=0, clickTimer=null;
   resetBtn.addEventListener('click', ()=>{
     clicks++;
@@ -454,11 +534,16 @@
     }
   });
 
+  // Start slab
+  startBtn.addEventListener('click', ()=>{ closeSettings(); start(); });
+
+  /* ---------- Save times / update UI ---------- */
   function saveTimes(){
     totalSec = ySec + gSec + bSec;
-    refreshLabels();
+    refreshInfoBar();
     if (elapsed > totalSec) elapsed = totalSec;
     updateSegments(elapsed);
+    positionMarkers();
     clock.textContent = fmtSS(elapsed);
     fitClockThrottled();
   }
@@ -482,7 +567,10 @@
       if (kind==='m') bSec = clamp(bSec + delta*60); else bSec = clamp(bSec + delta);
     }
     updateDisplayVals();
-    refreshLabels();
+    // Update both bar & markers live while editing
+    totalSec = ySec + gSec + bSec;
+    refreshInfoBar();
+    positionMarkers();
     updateSegments(elapsed);
   }
   document.querySelectorAll('.btnStep').forEach(btn=>{
@@ -494,25 +582,28 @@
     });
   });
 
-  // Init
+  /* ---------- Init ---------- */
   applyOrientationClass();
   updateDisplayVals();
-  refreshLabels();
+  refreshInfoBar();
+  positionMarkers();
   updateSegments(0);
   clock.textContent = fmtSS(0);
   fitClock();
+  // Show FAB on first load for a moment so you know it's there
+  showFabTemporarily();
 
   window.addEventListener('resize', fitClockThrottled);
   window.addEventListener('orientationchange', fitClockThrottled);
 
-  // Optional keyboard helpers
+  // Optional keyboard helpers (rehearsal on laptop)
   window.addEventListener('keydown', (e)=>{
     if (e.key === ' '){ e.preventDefault(); running ? pause() : start(); }
     else if (e.key.toLowerCase()==='s'){ sheet.classList.contains('open') ? (saveTimes(), closeSettings()) : openSettings(); }
     else if (e.key.toLowerCase()==='r'){ pause(); resetElapsed(); }
   });
+
 })();
 </script>
 </body>
 </html>
-
