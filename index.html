@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-<title>Improv Timer v12</title>
+<title>Improv Timer v13</title>
 <style>
   :root{
     --blue:#3aa8ff;
     --green:#25d366;
-    --red:#ff3b00;   /* bright, visible red/orange */
-    --after:#9fdcff; /* light blue after total */
+    --red:#ff3b00;
+    --after:#000000;  /* AFTER TOTAL: black digits */
 
     --bg:#000;
     --fg:#fff;
@@ -33,7 +33,7 @@
 
   /* ===== CLOCK (always black under digits) ===== */
   .clock-strip{
-    position:relative;background:#000;z-index:2;
+    position:relative;background:#000;z-index:2; /* ABOVE end-blink so digits remain visible */
     display:flex;align-items:center;justify-content:center;user-select:none;
   }
   .time-rot{transform-origin:center;}
@@ -43,13 +43,18 @@
   .time{
     display:block;line-height:0.9;font-weight:900;letter-spacing:0.01em;white-space:nowrap;
     text-shadow:0 0 22px rgba(0,0,0,.7);
-    color:var(--blue); /* will change with segment; after total -> --after */
-    font-size:10vw; /* JS fits to max */
+    color:var(--blue); /* changes with segment; AFTER TOTAL -> --after (black) */
+    font-size:10vw; /* JS auto-fits bigger */
   }
 
   .blink-mask{position:absolute;inset:0;background:#000;pointer-events:none;z-index:3;display:none;}
-  .end-blink{position:absolute;inset:0;pointer-events:none;z-index:4;background:var(--bg);
-    animation:endBlink .5s steps(2,jump-none) infinite;display:none;}
+
+  /* End blink now BEHIND the clock so time is visible on red frames */
+  .end-blink{
+    position:absolute;inset:0;pointer-events:none;z-index:0;
+    background:var(--bg);
+    animation:endBlink .5s steps(2,jump-none) infinite;display:none;
+  }
   @keyframes endBlink{0%{background:var(--bg)}50%{background:var(--danger)}100%{background:var(--danger)}}
 
   /* ===== BOTTOM PROGRESS BAND ONLY ===== */
@@ -87,7 +92,7 @@
     background:rgba(0,0,0,.35);padding:2px 8px;border-radius:8px;border:1px solid rgba(255,255,255,.12);
   }
 
-  /* ===== Bottom info bar (durations + total) ===== */
+  /* ===== Bottom info bar ===== */
   .bar{flex:0 0 auto;padding:10px 14px;display:flex;align-items:center;gap:10px;
     background:rgba(0,0,0,.55);backdrop-filter:blur(4px);border-top:1px solid rgba(255,255,255,.08);
     font-size:clamp(12px,2.4vw,18px);z-index:5;}
@@ -175,17 +180,18 @@
   .btn.primary{background:var(--blue);color:#002235}
   .btn.warn{background:#1a0000;color:#ffb3b3;border-color:#551111}
 
-  /* Watermark (only before start and first 10 seconds) */
+  /* Watermark (main page only, first 10s after load; hidden in settings) */
   .stamp{
-    position:fixed;right:10px;top:8px;z-index:12;font-size:12px;opacity:0.85;letter-spacing:0.4px;
+    position:fixed;right:10px;top:8px;z-index:10;font-size:12px;opacity:0.85;letter-spacing:0.4px;
     background:rgba(0,0,0,0.35);padding:2px 6px;border-radius:8px;border:1px solid rgba(255,255,255,0.12);
+    pointer-events:none;
   }
   .stamp.hidden{display:none;}
 </style>
 </head>
 <body>
   <div class="app" id="app">
-    <div class="stamp" id="stamp">08.09.2025 - v12 - Jimmy James</div>
+    <div class="stamp" id="stamp">08.09.2025 - v13 - Jimmy James</div>
 
     <div class="field" id="field">
       <!-- CLOCK -->
@@ -374,6 +380,14 @@
   let scheduledFinalBlinks = new Set();
   let blinking = false;
 
+  // --- Watermark visibility: only first 10s after load, and hidden while settings open ---
+  const appLoadMs = performance.now();
+  function updateStampVisibility(){
+    const sinceLoad = (performance.now() - appLoadMs)/1000;
+    const show = sinceLoad <= 10 && !sheet.classList.contains('open');
+    stamp.classList.toggle('hidden', !show);
+  }
+
   /* ---------- Orientation + Giant clock fitting ---------- */
   function applyOrientationClass(){
     const portrait = window.innerHeight >= window.innerWidth;
@@ -388,8 +402,8 @@
     const isPortrait = root.classList.contains('portrait');
 
     if (isPortrait){
-      const maxRotW = rect.width * 0.995;  // allow near full width
-      const maxRotH = rect.height * 0.985; // near full height
+      const maxRotW = rect.width * 0.995;
+      const maxRotH = rect.height * 0.985;
       let lo=4, hi=Math.max(12, rect.height*1.8);
       const fits = (px)=>{
         clock.style.fontSize = px + 'px';
@@ -424,7 +438,7 @@
     return `${m}:${s.toString().padStart(2,'0')}`;
   }
 
-  /* ---------- Digit color per segment; AFTER total -> light blue ---------- */
+  /* ---------- Digit color per segment; AFTER total -> black ---------- */
   function updateDigitColor(){
     const bEnd = bSec;
     const gEnd = bSec + gSec;
@@ -501,12 +515,6 @@
     segR.style.width = rW + '%';
   }
 
-  /* ---------- Watermark visibility: only pre-start & first 10s ---------- */
-  function updateStampVisibility(){
-    const show = (!running && elapsed === 0) || (elapsed > 0 && elapsed <= 10);
-    stamp.classList.toggle('hidden', !show);
-  }
-
   /* ---------- Timer control ---------- */
   function start(){
     if (running || totalSec === 0) return;
@@ -556,7 +564,7 @@
       handleFinalBlinkScheduling();
 
       if (elapsed >= totalSec){
-        endBlink.style.display = 'block';
+        endBlink.style.display = 'block';  // shows behind the clock
       }
 
       setMiniStatus();
@@ -611,9 +619,11 @@
   const openSettings = ()=>{
     sheet.classList.add('open');
     setMiniStatus();
+    updateStampVisibility(); // hide watermark while settings is open
   };
   const closeSettings = ()=>{
     sheet.classList.remove('open');
+    updateStampVisibility(); // possibly show if still within 10s window
   };
 
   // Settings buttons
@@ -686,8 +696,8 @@
   setMiniStatus();
   updateStampVisibility();
 
-  window.addEventListener('resize', fitClockThrottled);
-  window.addEventListener('orientationchange', fitClockThrottled);
+  window.addEventListener('resize', ()=>{ fitClockThrottled(); positionMarkers(); });
+  window.addEventListener('orientationchange', ()=>{ fitClockThrottled(); positionMarkers(); });
 
   // Optional keyboard helpers
   window.addEventListener('keydown', (e)=>{
