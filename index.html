@@ -476,4 +476,255 @@
     bShow.textContent = fmtSS(bSec);
     const totalTxt = fmtSS(totalSec);
     totalShow.textContent = totalTxt;
-    totalOverla
+    totalOverlay.textContent = totalTxt;
+    miniTotal.textContent = `/ ${totalTxt}`;
+  }
+
+  /* ---------- Mini status in settings header ---------- */
+  function setMiniStatus(){
+    miniClock.textContent = fmtSS(elapsed);
+    if (elapsed === 0 && !running){
+      miniStatus.textContent = 'Reset';
+      miniDot.className = 'dot reset';
+    } else if (running){
+      miniStatus.textContent = 'Running';
+      miniDot.className = 'dot run';
+    } else {
+      miniStatus.textContent = 'Paused';
+      miniDot.className = 'dot pause';
+    }
+  }
+
+  /* ---------- Segments fill for both bands ---------- */
+  function updateSegments(sec){
+    const pctTotal = totalSec ? (sec/totalSec)*100 : 0;
+    const rPct = totalSec ? (rSec/totalSec)*100 : 0;
+    const gPct = totalSec ? (gSec/totalSec)*100 : 0;
+    const bPct = 100 - rPct - gPct;
+
+    const rW = Math.min(pctTotal, rPct);
+    const gW = Math.min(Math.max(pctTotal - rPct, 0), gPct);
+    const bW = Math.min(Math.max(pctTotal - rPct - gPct, 0), bPct);
+
+    // top band
+    segR_top.style.width = rW + '%';
+    segG_top.style.width = gW + '%';
+    segB_top.style.width = bW + '%';
+    // bottom band
+    segR_bot.style.width = rW + '%';
+    segG_bot.style.width = gW + '%';
+    segB_bot.style.width = bW + '%';
+  }
+
+  /* ---------- Watermark visibility: only pre-start & first 10s ---------- */
+  function updateStampVisibility(){
+    const show = (!running && elapsed === 0) || (elapsed > 0 && elapsed <= 10);
+    stamp.classList.toggle('hidden', !show);
+  }
+
+  /* ---------- Timer control ---------- */
+  function start(){
+    if (running || totalSec === 0) return;
+    running = true;
+    startSlab.classList.add('start-hidden');
+    endBlink.style.display = 'none';
+    lastTick = performance.now();
+    setMiniStatus();
+    updateStampVisibility();
+    tick();
+  }
+  function pause(){
+    running = false;
+    if (rafId){ cancelAnimationFrame(rafId); rafId = null; }
+    startSlab.classList.remove('start-hidden');
+    setMiniStatus();
+    updateStampVisibility();
+  }
+  function resetElapsed(){
+    elapsed = 0;
+    scheduledFinalBlinks.clear();
+    blinking = false;
+    blinkMask.style.display = 'none';
+    endBlink.style.display = 'none';
+    clock.textContent = fmtSS(0);
+    updateDigitColor();
+    updateSegments(0);
+    setMiniStatus();
+    fitClockThrottled();
+    updateStampVisibility();
+  }
+
+  function tick(now){
+    if (!running) return;
+    if (!now) now = performance.now();
+    const dt = (now - lastTick) / 1000;
+    if (dt >= 0.25){
+      const add = Math.floor(dt);
+      elapsed += add;
+      lastTick += add*1000;
+      if (elapsed <= totalSec){
+        clock.textContent = fmtSS(elapsed);
+        updateDigitColor();
+        fitClockThrottled();
+        updateSegments(elapsed);
+        setMiniStatus();
+        updateStampVisibility();
+        handleFinalBlinkScheduling(); // 0.5 on / 0.5 off
+        if (elapsed === totalSec){
+          running = false;
+          endBlink.style.display = 'block';
+          setMiniStatus();
+          updateStampVisibility();
+          return;
+        }
+      }
+    }
+    rafId = requestAnimationFrame(tick);
+  }
+
+  /* ---------- Final (blue) segment blinks at minute boundaries ---------- */
+  function inFinalSegment(){
+    const finalStart = rSec + gSec; // blue starts after red+green
+    return elapsed >= finalStart && elapsed < totalSec;
+  }
+
+  async function handleFinalBlinkScheduling(){
+    if (!inFinalSegment()) return;
+    const finalStart = rSec + gSec;
+    const remaining = totalSec - elapsed; // seconds left in blue
+    const wholeMinLeft = Math.ceil(remaining / 60);
+    const atBoundary = ((elapsed - finalStart) % 60 === 0);
+    if (atBoundary && wholeMinLeft > 0 && !scheduledFinalBlinks.has(wholeMinLeft)){
+      scheduledFinalBlinks.add(wholeMinLeft);
+      await queueBlinkSequence(wholeMinLeft);
+    }
+  }
+
+  const sleep = (ms)=>new Promise(r=>setTimeout(r,ms));
+  async function queueBlinkSequence(n){
+    while (blinking) await sleep(40);
+    blinking = true;
+    for (let i=0;i<n;i++){
+      blinkMask.style.display = 'none';  await sleep(500);
+      blinkMask.style.display = 'block'; await sleep(500);
+    }
+    blinkMask.style.display = 'none';
+    blinking = false;
+  }
+
+  /* ---------- Triple-tap to open settings ---------- */
+  let tapCount = 0, tapTimer = null;
+  document.addEventListener('pointerdown', ()=>{
+    tapCount++;
+    if (tapTimer) clearTimeout(tapTimer);
+    tapTimer = setTimeout(()=>{ tapCount = 0; }, 600);
+    if (tapCount >= 3){
+      tapCount = 0;
+      openSettings();
+    }
+  });
+
+  // Settings open/close
+  const openSettings = ()=>{
+    sheet.classList.add('open');
+    setMiniStatus();
+  };
+  const closeSettings = ()=>{
+    sheet.classList.remove('open');
+  };
+
+  // Settings buttons
+  pauseBtn.addEventListener('click', ()=>{ pause(); setMiniStatus(); });
+  returnBtn.addEventListener('click', ()=>{ saveTimes(); closeSettings(); });
+  resetBtn.addEventListener('click', ()=>{ pause(); resetElapsed(); });
+
+  // Start slab
+  startBtn.addEventListener('click', ()=>{ closeSettings(); start(); });
+
+  /* ---------- Save times / update UI ---------- */
+  function saveTimes(){
+    totalSec = rSec + gSec + bSec;
+    refreshInfoBar();
+    if (elapsed > totalSec) elapsed = totalSec;
+    scheduledFinalBlinks.clear();
+    updateDigitColor();
+    updateSegments(elapsed);
+    positionMarkers();
+    clock.textContent = fmtSS(elapsed);
+    setMiniStatus();
+    fitClockThrottled();
+    updateStampVisibility();
+  }
+
+  // Stepper logic (minutes ±1, seconds ±5)
+  function updateDisplayVals(){
+    rMinVal.textContent = Math.floor(rSec/60);
+    rSecOnly.textContent = String(Math.floor(rSec%60)).padStart(2,'0');
+    gMinVal.textContent = Math.floor(gSec/60);
+    gSecOnly.textContent = String(Math.floor(gSec%60)).padStart(2,'0');
+    bMinVal.textContent = Math.floor(bSec/60);
+    bSecOnly.textContent = String(Math.floor(bSec%60)).padStart(2,'0');
+  }
+  function adjust(seg, kind, delta){
+    const clamp = (v)=>Math.max(0, Math.min(6*60*60, v)); // up to 6h per segment
+    const step = (kind==='m') ? 60 : 5; // seconds step is 5
+    if (seg==='r'){
+      rSec = clamp(rSec + delta*step);
+    } else if (seg==='g'){
+      gSec = clamp(gSec + delta*step);
+    } else if (seg==='b'){
+      bSec = clamp(bSec + delta*step);
+    }
+    updateDisplayVals();
+    totalSec = rSec + gSec + bSec;
+    refreshInfoBar();
+    positionMarkers();
+    updateSegments(elapsed);
+    updateDigitColor();
+    setMiniStatus();
+  }
+  document.querySelectorAll('.btnStep').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const seg = btn.getAttribute('data-seg');
+      const kind = btn.getAttribute('data-kind'); // 'm' or 's' (5s step)
+      const d = parseInt(btn.getAttribute('data-d'),10);
+      adjust(''+seg, ''+kind, d);
+    });
+  });
+
+  /* ---------- Init ---------- */
+  applyOrientationClass();
+  updateDisplayVals();
+  refreshInfoBar();
+  positionMarkers();
+  updateSegments(0);
+  clock.textContent = fmtSS(0);
+  updateDigitColor();
+  fitClock();
+  setMiniStatus();
+  updateStampVisibility();
+
+  window.addEventListener('resize', fitClockThrottled);
+  window.addEventListener('orientationchange', fitClockThrottled);
+
+  // Optional keyboard helpers (for rehearsals)
+  window.addEventListener('keydown', (e)=>{
+    if (e.key === ' '){ e.preventDefault(); running ? pause() : start(); }
+    else if (e.key.toLowerCase()==='s'){ sheet.classList.contains('open') ? closeSettings() : openSettings(); }
+    else if (e.key.toLowerCase()==='r'){ pause(); resetElapsed(); }
+  });
+
+  /* ---------- helpers ---------- */
+  function throttle(fn, ms){
+    let last = 0, t;
+    return function(){
+      const now = performance.now();
+      if (now - last >= ms){ last = now; fn(); }
+      else { clearTimeout(t); t = setTimeout(()=>{ last = performance.now(); fn(); }, ms - (now - last)); }
+    };
+  }
+
+})();
+</script>
+</body>
+</html>
