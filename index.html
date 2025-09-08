@@ -3,20 +3,20 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-<title>Improv Timer v8</title>
+<title>Improv Timer v8 (RGB)</title>
 <style>
   :root{
-    --red:#ff3b30;
-    --blue:#3aa8ff;
-    --green:#25d366;
+    --red:#ff0000;       /* pure red */
+    --green:#25d366;     /* green segment/line */
+    --blue:#3aa8ff;      /* blue segment/line */
 
     --bg:#000000;
     --fg:#ffffff;
     --danger:#ff2222;
 
     --digits-yellow:#ffd400; /* red segment digits */
-    --digits-white:#ffffff;  /* blue segment digits */
     --digits-pink:#ff6fb5;   /* green segment digits */
+    --digits-white:#ffffff;  /* blue segment digits */
   }
 
   html,body{
@@ -28,26 +28,27 @@
   .app{position:relative;height:100%;width:100%;display:flex;flex-direction:column;}
   .field{position:relative;flex:1 1 auto;overflow:hidden;background:var(--bg);}
 
-  /* Segments (accumulating red → blue → green) */
+  /* Segments (accumulating red → green → blue) */
   .segments{position:absolute;inset:0;display:flex;pointer-events:none;z-index:1;}
   .seg{height:100%;width:0}
   .seg.red{background:var(--red)}
-  .seg.blue{background:var(--blue)}
   .seg.green{background:var(--green)}
+  .seg.blue{background:var(--blue)}
 
   /* Marker lines, dots & labels (bottom black space) */
   .markers{position:absolute;inset:0;pointer-events:none;z-index:9;}
   .marker{position:absolute;top:0;bottom:0;width:2px;opacity:.98;}
   .marker.red{background:var(--red)}
-  .marker.blue{background:var(--blue)}
-  .marker.end{background:var(--blue)} /* end line is blue */
+  .marker.green{background:var(--green)}
+  .marker.end{background:var(--blue);width:3px;} /* end line is blue & a bit thicker */
 
   .marker-dot{
     position:absolute;bottom:0;width:10px;height:10px;border-radius:50%;
-    transform:translate(-50%, 50%);
+    transform:translate(-50%, 50%); /* center on the line, sitting on bottom edge */
     border:1px solid rgba(0,0,0,.45);
   }
   .marker-dot.red{background:var(--red)}
+  .marker-dot.green{background:var(--green)}
   .marker-dot.blue{background:var(--blue)}
 
   .marker-label{
@@ -67,18 +68,18 @@
     background:rgba(0,0,0,.35);padding:2px 8px;border-radius:8px;border:1px solid rgba(255,255,255,.12);
   }
 
-  /* Orientation-aware stopwatch */
+  /* Orientation-aware stopwatch (main big digits) */
   .time-wrap{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:2;pointer-events:none;}
   .time-rot{transform-origin:center;}
-  .portrait .time-rot{ transform: rotate(-90deg); }
-  .landscape .time-rot{ transform: none; }
+  .portrait .time-rot{ transform: rotate(-90deg); }  /* portrait: bottom→top */
+  .landscape .time-rot{ transform: none; }           /* landscape: horizontal */
   .time{
     display:block;line-height:0.9;font-weight:900;letter-spacing:0.02em;white-space:nowrap;
     text-shadow:0 0 22px rgba(0,0,0,.7);
     color:var(--digits-yellow); /* will change with segment */
   }
 
-  /* Blink overlay */
+  /* Blink overlay (0.5s color / 0.5s black handled in JS) */
   .blink-mask{position:absolute;inset:0;background:#000;pointer-events:none;z-index:5;display:none;}
 
   /* End-of-timer black/red blink */
@@ -93,7 +94,7 @@
   .pill{padding:6px 10px;border:1px solid rgba(255,255,255,.18);border-radius:999px;
     display:inline-flex;align-items:center;gap:8px;white-space:nowrap;}
   .dot{width:10px;height:10px;border-radius:50%;display:inline-block;}
-  .dot.red{background:var(--red)} .dot.blue{background:var(--blue)} .dot.green{background:var(--green)}
+  .dot.red{background:var(--red)} .dot.green{background:var(--green)} .dot.blue{background:var(--blue)}
   .bar .spacer{flex:1}
   .bar strong#totalShow{font-size:1.25em}
 
@@ -145,7 +146,7 @@
   .row + .row{margin-top:12px;}
   .group{flex:1 1 260px;min-width:260px;background:#121212;border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:12px;}
 
-  /* Themed groups */
+  /* Themed groups (letters/symbols colored to segment) */
   .group.themed{position:relative;--theme:#fff;}
   .group.themed h4{margin:0 0 8px 0;display:flex;align-items:center;gap:8px;font-size:16px;color:var(--theme)}
   .group.themed .lbl{color:var(--theme);opacity:.9}
@@ -156,8 +157,8 @@
     box-shadow:inset 0 0 0 1px rgba(0,0,0,.25);
   }
   .group.red   { --theme: var(--red); }
-  .group.blue  { --theme: var(--blue); }
   .group.green { --theme: var(--green); }
+  .group.blue  { --theme: var(--blue); }
 
   .counter{display:flex;align-items:center;gap:8px;margin-top:6px;}
   .lbl{opacity:.8;font-size:12px;min-width:70px}
@@ -180,6 +181,8 @@
   /* Stamp + triple-tap hint */
   .stamp{position:fixed;right:10px;top:8px;z-index:12;font-size:12px;opacity:0.85;letter-spacing:0.4px;
     background:rgba(0,0,0,0.35);padding:2px 6px;border-radius:8px;border:1px solid rgba(255,255,255,0.12);}
+  body.has-sheet .stamp{top:auto;bottom:8px;right:10px;opacity:.6;} /* move stamp away from header when settings open */
+
   .tap-hint{
     position:fixed;left:50%;bottom:80px;transform:translateX(-50%);
     z-index:12;font-size:13px;opacity:0;pointer-events:none;
@@ -197,23 +200,23 @@
     <div class="field" id="field">
       <!-- Accumulating segments -->
       <div class="segments">
-        <div class="seg red"  id="segR"></div>
-        <div class="seg blue" id="segB"></div>
-        <div class="seg green"id="segG"></div>
+        <div class="seg red"   id="segR"></div>
+        <div class="seg green" id="segG"></div>
+        <div class="seg blue"  id="segB"></div>
       </div>
 
       <!-- Marker lines + dots + labels -->
       <div class="markers">
-        <div class="marker red"  id="lineR"></div>
-        <div class="marker blue" id="lineB"></div>
-        <div class="marker end"  id="lineEnd"></div>
+        <div class="marker red"   id="lineR"></div>
+        <div class="marker green" id="lineG"></div>
+        <div class="marker end"   id="lineEnd"></div>
 
-        <div class="marker-dot red"  id="dotR"></div>
-        <div class="marker-dot blue" id="dotB"></div>
-        <div class="marker-dot blue" id="dotEnd"></div>
+        <div class="marker-dot red"   id="dotR"></div>
+        <div class="marker-dot green" id="dotG"></div>
+        <div class="marker-dot blue"  id="dotEnd"></div>
 
         <div class="marker-label left"  id="labelR">3:00</div>
-        <div class="marker-label left"  id="labelB">17:00</div>
+        <div class="marker-label left"  id="labelG">17:00</div>
         <div class="marker-label right" id="labelEnd">20:00</div>
       </div>
 
@@ -240,8 +243,8 @@
     <!-- Bottom status bar -->
     <div class="bar">
       <span class="pill"><span class="dot red"></span><span id="rShow">3:00</span></span>
-      <span class="pill"><span class="dot blue"></span><span id="bShow">14:00</span></span>
-      <span class="pill"><span class="dot green"></span><span id="gShow">3:00</span></span>
+      <span class="pill"><span class="dot green"></span><span id="gShow">14:00</span></span>
+      <span class="pill"><span class="dot blue"></span><span id="bShow">3:00</span></span>
       <div class="spacer"></div>
       <span class="pill" title="Total time"><strong id="totalShow">20:00</strong></span>
     </div>
@@ -279,30 +282,13 @@
               </div>
             </div>
 
-            <!-- 2. Blue -->
-            <div class="group themed blue">
-              <h4><span>2.</span> <span class="dot blue"></span> <strong>Blue</strong></h4>
-              <div class="counter">
-                <span class="lbl">Minutes</span>
-                <button class="btnStep" data-seg="b" data-kind="m" data-d="-1">−</button>
-                <span class="val" id="bMinVal">14</span>
-                <button class="btnStep" data-seg="b" data-kind="m" data-d="1">+</button>
-              </div>
-              <div class="counter">
-                <span class="lbl">Seconds (×5)</span>
-                <button class="btnStep" data-seg="b" data-kind="s" data-d="-1">−5</button>
-                <span class="val" id="bSecOnly">00</span>
-                <button class="btnStep" data-seg="b" data-kind="s" data-d="1">+5</button>
-              </div>
-            </div>
-
-            <!-- 3. Green -->
+            <!-- 2. Green -->
             <div class="group themed green">
-              <h4><span>3.</span> <span class="dot green"></span> <strong>Green</strong></h4>
+              <h4><span>2.</span> <span class="dot green"></span> <strong>Green</strong></h4>
               <div class="counter">
                 <span class="lbl">Minutes</span>
                 <button class="btnStep" data-seg="g" data-kind="m" data-d="-1">−</button>
-                <span class="val" id="gMinVal">3</span>
+                <span class="val" id="gMinVal">14</span>
                 <button class="btnStep" data-seg="g" data-kind="m" data-d="1">+</button>
               </div>
               <div class="counter">
@@ -310,6 +296,23 @@
                 <button class="btnStep" data-seg="g" data-kind="s" data-d="-1">−5</button>
                 <span class="val" id="gSecOnly">00</span>
                 <button class="btnStep" data-seg="g" data-kind="s" data-d="1">+5</button>
+              </div>
+            </div>
+
+            <!-- 3. Blue -->
+            <div class="group themed blue">
+              <h4><span>3.</span> <span class="dot blue"></span> <strong>Blue</strong></h4>
+              <div class="counter">
+                <span class="lbl">Minutes</span>
+                <button class="btnStep" data-seg="b" data-kind="m" data-d="-1">−</button>
+                <span class="val" id="bMinVal">3</span>
+                <button class="btnStep" data-seg="b" data-kind="m" data-d="1">+</button>
+              </div>
+              <div class="counter">
+                <span class="lbl">Seconds (×5)</span>
+                <button class="btnStep" data-seg="b" data-kind="s" data-d="-1">−5</button>
+                <span class="val" id="bSecOnly">00</span>
+                <button class="btnStep" data-seg="b" data-kind="s" data-d="1">+5</button>
               </div>
             </div>
           </div>
@@ -333,27 +336,27 @@
   const field = document.getElementById('field');
 
   const segR = document.getElementById('segR');
-  const segB = document.getElementById('segB');
   const segG = document.getElementById('segG');
+  const segB = document.getElementById('segB');
 
   const lineR = document.getElementById('lineR');
-  const lineB = document.getElementById('lineB');
+  const lineG = document.getElementById('lineG');
   const lineEnd = document.getElementById('lineEnd');
 
   const dotR = document.getElementById('dotR');
-  const dotB = document.getElementById('dotB');
+  const dotG = document.getElementById('dotG');
   const dotEnd = document.getElementById('dotEnd');
 
   const labelR = document.getElementById('labelR');
-  const labelB = document.getElementById('labelB');
+  const labelG = document.getElementById('labelG');
   const labelEnd = document.getElementById('labelEnd');
 
   const blinkMask = document.getElementById('blinkMask');
   const endBlink = document.getElementById('endBlink');
 
   const rShow = document.getElementById('rShow');
-  const bShow = document.getElementById('bShow');
   const gShow = document.getElementById('gShow');
+  const bShow = document.getElementById('bShow');
   const totalShow = document.getElementById('totalShow');
   const totalOverlay = document.getElementById('totalOverlay');
 
@@ -375,14 +378,14 @@
   // Settings values
   const rMinVal = document.getElementById('rMinVal');
   const rSecOnly = document.getElementById('rSecOnly');
-  const bMinVal = document.getElementById('bMinVal');
-  const bSecOnly = document.getElementById('bSecOnly');
   const gMinVal = document.getElementById('gMinVal');
   const gSecOnly = document.getElementById('gSecOnly');
+  const bMinVal = document.getElementById('bMinVal');
+  const bSecOnly = document.getElementById('bSecOnly');
 
-  // State (seconds)
-  let rSec = 3*60, bSec = 14*60, gSec = 3*60;
-  let totalSec = rSec + bSec + gSec;
+  // State (seconds) in RGB order
+  let rSec = 3*60, gSec = 14*60, bSec = 3*60;
+  let totalSec = rSec + gSec + bSec;
 
   let elapsed = 0; // seconds
   let running = false;
@@ -454,43 +457,43 @@
   /* ---------- Digit color per segment ---------- */
   function updateDigitColor(){
     const rEnd = rSec;
-    const bEnd = rSec + bSec;
+    const gEnd = rSec + gSec;
     if (elapsed < rEnd){
-      clock.style.color = getComputedStyle(document.documentElement).getPropertyValue('--digits-yellow');
-    } else if (elapsed < bEnd){
-      clock.style.color = getComputedStyle(document.documentElement).getPropertyValue('--digits-white');
+      clock.style.color = getComputedStyle(document.documentElement).getPropertyValue('--digits-yellow'); // red phase
+    } else if (elapsed < gEnd){
+      clock.style.color = getComputedStyle(document.documentElement).getPropertyValue('--digits-pink');   // green phase
     } else {
-      clock.style.color = getComputedStyle(document.documentElement).getPropertyValue('--digits-pink');
+      clock.style.color = getComputedStyle(document.documentElement).getPropertyValue('--digits-white');  // blue phase
     }
   }
 
   /* ---------- Labels, markers, dots ---------- */
   function positionMarkers(){
     const rPct = totalSec ? (rSec/totalSec)*100 : 0;
-    const bPct = totalSec ? ((rSec+bSec)/totalSec)*100 : 0;
+    const gPct = totalSec ? ((rSec+gSec)/totalSec)*100 : 0;
     const endPct = 100;
 
     lineR.style.left = `calc(${rPct}% - 1px)`;
-    lineB.style.left = `calc(${bPct}% - 1px)`;
+    lineG.style.left = `calc(${gPct}% - 1px)`;
     lineEnd.style.left = `calc(${endPct}% - 1px)`;
 
     dotR.style.left = `${rPct}%`;
-    dotB.style.left = `${bPct}%`;
+    dotG.style.left = `${gPct}%`;
     dotEnd.style.left = `${endPct}%`;
 
     labelR.textContent = fmtSS(rSec);
-    labelB.textContent = fmtSS(rSec+bSec);
+    labelG.textContent = fmtSS(rSec+gSec);
     labelEnd.textContent = fmtSS(totalSec);
 
     labelR.style.left = `calc(${rPct}% - 8px)`;
-    labelB.style.left = `calc(${bPct}% - 8px)`;
+    labelG.style.left = `calc(${gPct}% - 8px)`;
     labelEnd.style.left = `calc(${endPct}% + 8px)`;
   }
 
   function refreshInfoBar(){
     rShow.textContent = fmtSS(rSec);
-    bShow.textContent = fmtSS(bSec);
     gShow.textContent = fmtSS(gSec);
+    bShow.textContent = fmtSS(bSec);
     const totalTxt = fmtSS(totalSec);
     totalShow.textContent = totalTxt;
     totalOverlay.textContent = totalTxt;
@@ -516,16 +519,16 @@
   function updateSegments(sec){
     const pctTotal = totalSec ? (sec/totalSec)*100 : 0;
     const rPct = totalSec ? (rSec/totalSec)*100 : 0;
-    const bPct = totalSec ? (bSec/totalSec)*100 : 0;
-    const gPct = 100 - rPct - bPct;
+    const gPct = totalSec ? (gSec/totalSec)*100 : 0;
+    const bPct = 100 - rPct - gPct;
 
     const rW = Math.min(pctTotal, rPct);
-    const bW = Math.min(Math.max(pctTotal - rPct, 0), bPct);
-    const gW = Math.min(Math.max(pctTotal - rPct - bPct, 0), gPct);
+    const gW = Math.min(Math.max(pctTotal - rPct, 0), gPct);
+    const bW = Math.min(Math.max(pctTotal - rPct - gPct, 0), bPct);
 
     segR.style.width = rW + '%';
-    segB.style.width = bW + '%';
     segG.style.width = gW + '%';
+    segB.style.width = bW + '%';
   }
 
   /* ---------- Timer control ---------- */
@@ -571,7 +574,7 @@
         fitClockThrottled();
         updateSegments(elapsed);
         setMiniStatus();
-        handleFinalBlinkScheduling();
+        handleFinalBlinkScheduling(); // 0.5 on / 0.5 off
         if (elapsed === totalSec){
           running = false;
           endBlink.style.display = 'block';
@@ -583,19 +586,20 @@
     rafId = requestAnimationFrame(tick);
   }
 
-  /* ---------- Final (green) segment blinks ---------- */
+  /* ---------- Final (blue) segment blinks at minute boundaries ---------- */
   function inFinalSegment(){
-    const finalStart = rSec + bSec;
+    const finalStart = rSec + gSec; // blue starts after red+green
     return elapsed >= finalStart && elapsed < totalSec;
   }
 
   async function handleFinalBlinkScheduling(){
     if (!inFinalSegment()) return;
-    const finalStart = rSec + bSec;
-    const remaining = totalSec - elapsed; // seconds left in green
+    const finalStart = rSec + gSec;
+    const remaining = totalSec - elapsed; // seconds left in blue
     const wholeMinLeft = Math.ceil(remaining / 60);
     const atBoundary = ((elapsed - finalStart) % 60 === 0);
     if (atBoundary && wholeMinLeft > 0 && !scheduledFinalBlinks.has(wholeMinLeft)){
+      // Default 3-14-3 → triggers at 17:00 (3), 18:00 (2), 19:00 (1)
       scheduledFinalBlinks.add(wholeMinLeft);
       await queueBlinkSequence(wholeMinLeft);
     }
@@ -613,12 +617,13 @@
     blinking = false;
   }
 
-  /* ---------- Triple-tap to open settings + 5s hint on any touch ---------- */
+  /* ---------- Triple-tap to open settings + move stamp + 5s hint ---------- */
   let tapCount = 0, tapTimer = null, hintTimer = null;
   function showTapHint(){
-    tapHint.classList.add('show');
+    const el = document.getElementById('tapHint');
+    el.classList.add('show');
     if (hintTimer) clearTimeout(hintTimer);
-    hintTimer = setTimeout(()=> tapHint.classList.remove('show'), 5000);
+    hintTimer = setTimeout(()=> el.classList.remove('show'), 5000);
   }
   document.addEventListener('pointerdown', ()=>{
     showTapHint();
@@ -634,10 +639,12 @@
   // Settings open/close
   const openSettings = ()=>{
     sheet.classList.add('open');
+    document.body.classList.add('has-sheet'); // move watermark away so mini clock is visible
     setMiniStatus();
   };
   const closeSettings = ()=>{
     sheet.classList.remove('open');
+    document.body.classList.remove('has-sheet');
   };
 
   // Settings buttons
@@ -650,7 +657,7 @@
 
   /* ---------- Save times / update UI ---------- */
   function saveTimes(){
-    totalSec = rSec + bSec + gSec;
+    totalSec = rSec + gSec + bSec;
     refreshInfoBar();
     if (elapsed > totalSec) elapsed = totalSec;
     scheduledFinalBlinks.clear();
@@ -666,23 +673,23 @@
   function updateDisplayVals(){
     rMinVal.textContent = Math.floor(rSec/60);
     rSecOnly.textContent = String(Math.floor(rSec%60)).padStart(2,'0');
-    bMinVal.textContent = Math.floor(bSec/60);
-    bSecOnly.textContent = String(Math.floor(bSec%60)).padStart(2,'0');
     gMinVal.textContent = Math.floor(gSec/60);
     gSecOnly.textContent = String(Math.floor(gSec%60)).padStart(2,'0');
+    bMinVal.textContent = Math.floor(bSec/60);
+    bSecOnly.textContent = String(Math.floor(bSec%60)).padStart(2,'0');
   }
   function adjust(seg, kind, delta){
     const clamp = (v)=>Math.max(0, Math.min(6*60*60, v)); // up to 6h per segment
     const step = (kind==='m') ? 60 : 5; // seconds step is 5
     if (seg==='r'){
       rSec = clamp(rSec + delta*step);
-    } else if (seg==='b'){
-      bSec = clamp(bSec + delta*step);
     } else if (seg==='g'){
       gSec = clamp(gSec + delta*step);
+    } else if (seg==='b'){
+      bSec = clamp(bSec + delta*step);
     }
     updateDisplayVals();
-    totalSec = rSec + bSec + gSec;
+    totalSec = rSec + gSec + bSec;
     refreshInfoBar();
     positionMarkers();
     updateSegments(elapsed);
