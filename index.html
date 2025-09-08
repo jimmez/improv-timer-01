@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-<title>Improv Timer v11.6</title>
+<title>Improv Timer v12</title>
 <style>
   :root{
     --blue:#3aa8ff;
     --green:#25d366;
-    --red:#ff3b00;
-    --after:#9fdcff;
+    --red:#ff3b00;   /* bright, visible red/orange */
+    --after:#9fdcff; /* light blue after total */
 
     --bg:#000;
     --fg:#fff;
@@ -19,103 +19,295 @@
     --band-max:24vh;
   }
 
-  html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font-family:sans-serif;overflow:hidden;}
+  html,body{
+    height:100%;margin:0;background:var(--bg);color:var(--fg);
+    font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif;
+    overflow:hidden;
+  }
+
   .app{position:relative;height:100%;width:100%;display:flex;flex-direction:column;}
-  .field{position:relative;flex:1 1 auto;display:grid;grid-template-rows:1fr auto;grid-template-columns:100%;}
+  .field{
+    position:relative;flex:1 1 auto;background:var(--bg);
+    display:grid;grid-template-rows:1fr auto;grid-template-columns:100%;
+  }
 
-  /* CLOCK */
-  .clock-strip{position:relative;background:#000;display:flex;align-items:center;justify-content:center;z-index:2;}
+  /* ===== CLOCK (always black under digits) ===== */
+  .clock-strip{
+    position:relative;background:#000;z-index:2;
+    display:flex;align-items:center;justify-content:center;user-select:none;
+  }
   .time-rot{transform-origin:center;}
-  .portrait .time-rot{ transform: rotate(-90deg); }
+  .portrait .time-rot{ transform: rotate(-90deg); }  /* portrait: bottom→top */
   .landscape .time-rot{ transform: none; }
-  .time{display:block;line-height:0.9;font-weight:900;white-space:nowrap;text-shadow:0 0 22px rgba(0,0,0,.7);font-size:12vw;}
 
-  .blink-mask{position:absolute;inset:0;background:#000;z-index:3;display:none;}
-  .end-blink{position:absolute;inset:0;z-index:4;background:var(--bg);
+  .time{
+    display:block;line-height:0.9;font-weight:900;letter-spacing:0.01em;white-space:nowrap;
+    text-shadow:0 0 22px rgba(0,0,0,.7);
+    color:var(--blue); /* will change with segment; after total -> --after */
+    font-size:10vw; /* JS fits to max */
+  }
+
+  .blink-mask{position:absolute;inset:0;background:#000;pointer-events:none;z-index:3;display:none;}
+  .end-blink{position:absolute;inset:0;pointer-events:none;z-index:4;background:var(--bg);
     animation:endBlink .5s steps(2,jump-none) infinite;display:none;}
   @keyframes endBlink{0%{background:var(--bg)}50%{background:var(--danger)}100%{background:var(--danger)}}
 
-  /* Bottom progress band */
-  .band{position:relative;min-height:var(--band-min);max-height:var(--band-max);
-    height:clamp(var(--band-min),18vh,var(--band-max));overflow:hidden;z-index:1;}
-  .segments{position:absolute;inset:0;display:flex;}
-  .seg{height:100%;width:0;}
-  .seg.blue{background:var(--blue);}
-  .seg.green{background:var(--green);}
-  .seg.red{background:var(--red);}
+  /* ===== BOTTOM PROGRESS BAND ONLY ===== */
+  .band{
+    position:relative;min-height:var(--band-min);max-height:var(--band-max);
+    height:clamp(var(--band-min),18vh,var(--band-max));overflow:hidden;z-index:1;
+  }
+  .segments{position:absolute;inset:0;display:flex;pointer-events:none;}
+  .seg{height:100%;width:0}
+  .seg.blue{background:var(--blue)}
+  .seg.green{background:var(--green)}
+  .seg.red{background:var(--red)}
 
-  .markers{position:absolute;inset:0;}
+  .markers{position:absolute;inset:0;pointer-events:none;}
   .marker{position:absolute;top:0;bottom:0;width:2px;}
-  .marker.blue{background:var(--blue);}
-  .marker.green{background:var(--green);}
-  .marker.end{background:var(--red);width:4px;}
+  .marker.blue{background:var(--blue)}
+  .marker.green{background:var(--green)}
+  .marker.end{background:var(--red);width:4px;} /* thicker end line */
 
-  .marker-label{position:absolute;bottom:6px;font-size:12px;font-weight:800;font-variant-numeric:tabular-nums;
-    padding:2px 6px;border-radius:6px;background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.12);}
-  .marker-label.blue{color:var(--blue);}
-  .marker-label.green{color:var(--green);}
-  .marker-label.red{color:var(--red);}
+  .marker-label{
+    position:absolute;bottom:6px;transform:translateX(-8px);
+    font-size:12px;font-weight:800;font-variant-numeric:tabular-nums;
+    padding:2px 6px;border-radius:6px;white-space:nowrap;
+    background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.12);
+  }
+  .marker-label.blue{color:var(--blue)}
+  .marker-label.green{color:var(--green)}
+  .marker-label.red{color:var(--red)}
 
-  .total-overlay{position:absolute;right:10px;bottom:6px;z-index:2;font-weight:900;font-variant-numeric:tabular-nums;
-    font-size:clamp(14px,3.8vw,28px);color:#fff;background:rgba(0,0,0,.35);
-    padding:2px 8px;border-radius:8px;border:1px solid rgba(255,255,255,.12);}
+  .total-overlay{
+    position:absolute;right:10px;bottom:6px;z-index:2;
+    font-weight:900;font-variant-numeric:tabular-nums;
+    font-size:clamp(14px,3.8vw,28px);
+    color:#ffffff;text-shadow:0 0 16px rgba(0,0,0,.6);
+    background:rgba(0,0,0,.35);padding:2px 8px;border-radius:8px;border:1px solid rgba(255,255,255,.12);
+  }
 
-  /* Start slab */
-  .start-slab{position:absolute;left:0;top:0;bottom:0;width:20%;display:flex;align-items:center;justify-content:center;
-    background:rgba(58,168,255,0.07);border-right:1px solid rgba(255,255,255,.12);cursor:pointer;z-index:6;}
-  .start-slab button{width:88%;max-width:340px;padding:18px;border-radius:16px;
-    border:2px solid rgba(255,255,255,.28);background:var(--blue);color:#002235;font-weight:900;font-size:24px;cursor:pointer;}
+  /* ===== Bottom info bar (durations + total) ===== */
+  .bar{flex:0 0 auto;padding:10px 14px;display:flex;align-items:center;gap:10px;
+    background:rgba(0,0,0,.55);backdrop-filter:blur(4px);border-top:1px solid rgba(255,255,255,.08);
+    font-size:clamp(12px,2.4vw,18px);z-index:5;}
+  .pill{padding:6px 10px;border:1px solid rgba(255,255,255,.18);border-radius:999px;
+    display:inline-flex;align-items:center;gap:8px;white-space:nowrap;}
+  .dot{width:10px;height:10px;border-radius:50%;display:inline-block;}
+  .dot.blue{background:var(--blue)} .dot.green{background:var(--green)} .dot.red{background:var(--red)}
+  .bar .spacer{flex:1}
+  .bar strong#totalShow{font-size:1.25em}
+
+  /* ===== Start slab (left 20%) ===== */
+  .start-slab{
+    position:absolute;left:0;top:0;bottom:0;width:20%;
+    display:flex;align-items:center;justify-content:center;
+    background:rgba(58,168,255,0.07);border-right:1px solid rgba(255,255,255,.12);
+    cursor:pointer;user-select:none;z-index:6;
+  }
+  .start-slab button{
+    width:88%;max-width:340px;padding:18px 12px;border-radius:16px;
+    border:2px solid rgba(255,255,255,.28);background:var(--blue);color:#002235;
+    font-weight:900;font-size:clamp(18px,3.8vw,28px);box-shadow:0 10px 30px rgba(0,0,0,.45);cursor:pointer;
+  }
   .start-hidden{display:none;}
 
-  /* Settings sheet */
+  /* ===== Settings (triple-tap) ===== */
   .sheet{position:fixed;inset:0;background:rgba(0,0,0,.66);display:none;align-items:center;justify-content:center;z-index:11;}
-  .sheet.open{display:flex;}
-  .card{width:min(600px,92vw);background:#0b0b0b;color:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.6);
-    padding:20px;display:flex;flex-direction:column;gap:12px;}
-  .btn{padding:10px 16px;border-radius:10px;font-weight:700;cursor:pointer;border:1px solid #444;}
-  .btn.primary{background:var(--blue);color:#002235;}
-  .btn.warn{background:#200;color:#fbb;border-color:#500;}
+  .sheet.open{display:flex}
+  .card{
+    width:min(900px,92vw);
+    max-height:92vh;
+    background:#0b0b0b;color:var(--fg);
+    border:1px solid rgba(255,255,255,.12);border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.6);
+    padding:0;display:flex;flex-direction:column;overflow:hidden;
+  }
+  .card-header{
+    position:sticky;top:0;z-index:2;
+    background:linear-gradient(180deg,#0b0b0b 85%,rgba(11,11,11,0) 100%);
+    padding:14px 16px 10px 16px;border-bottom:1px solid rgba(255,255,255,.08);
+    display:flex;align-items:flex-end;justify-content:space-between;gap:12px;
+  }
+  .card-title{margin:0;font-size:18px;font-weight:800;}
+  .status{
+    display:flex;align-items:center;gap:10px;font-variant-numeric:tabular-nums;
+    background:rgba(255,255,255,.06);padding:6px 10px;border-radius:10px;border:1px solid rgba(255,255,255,.12);
+  }
+  .status .dot{width:10px;height:10px;border-radius:50%;}
+  .status .dot.run{background:#28d17c}
+  .status .dot.pause{background:#ffb020}
+  .status .dot.reset{background:#aaaaaa}
+  .mini-time{font-weight:900;letter-spacing:0.02em}
+  .mini-total{opacity:.8}
+  .mini-divider{opacity:.6}
+
+  .card-body{padding:12px 16px;overflow:auto;}
+  .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;}
+  .row + .row{margin-top:12px;}
+  .group{flex:1 1 260px;min-width:260px;background:#121212;border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:12px;}
+
+  .group.themed{position:relative;--theme:#fff;}
+  .group.themed h4{margin:0 0 8px 0;display:flex;align-items:center;gap:8px;font-size:16px;color:var(--theme)}
+  .group.themed .lbl{color:var(--theme);opacity:.9}
+  .group.themed .val{border-color:color-mix(in srgb, var(--theme) 40%, #ffffff 20%);color:var(--theme)}
+  .group.themed .btnStep{
+    border:1px solid; border-color:color-mix(in srgb, var(--theme) 60%, #ffffff 10%);
+    color:#000; background:color-mix(in srgb, var(--theme) 50%, #101010 50%);
+    box-shadow:inset 0 0 0 1px rgba(0,0,0,.25);
+  }
+  .group.blue  { --theme: var(--blue); }
+  .group.green { --theme: var(--green); }
+  .group.red   { --theme: var(--red); }
+
+  .counter{display:flex;align-items:center;gap:8px;margin-top:6px;}
+  .lbl{opacity:.8;font-size:12px;min-width:70px}
+  .btnStep{padding:6px 10px;border-radius:10px;font-weight:800;cursor:pointer;min-width:44px;text-align:center}
+  .val{padding:6px 10px;border:1px dashed rgba(255,255,255,.24);border-radius:10px;min-width:72px;text-align:center;font-variant-numeric:tabular-nums;}
+
+  .card-footer{
+    position:sticky;bottom:0;z-index:2;
+    background:linear-gradient(0deg,#0b0b0b 82%,rgba(11,11,11,0) 100%);
+    border-top:1px solid rgba(255,255,255,.12);
+    padding:10px 16px calc(10px + env(safe-area-inset-bottom)) 16px;
+    display:flex;align-items:center;gap:12px;
+  }
+  .btn{border:1px solid rgba(255,255,255,.18);background:#101010;color:var(--fg);padding:12px 16px;border-radius:12px;font-weight:800;cursor:pointer;}
+  .btn.primary{background:var(--blue);color:#002235}
+  .btn.warn{background:#1a0000;color:#ffb3b3;border-color:#551111}
+
+  /* Watermark (only before start and first 10 seconds) */
+  .stamp{
+    position:fixed;right:10px;top:8px;z-index:12;font-size:12px;opacity:0.85;letter-spacing:0.4px;
+    background:rgba(0,0,0,0.35);padding:2px 6px;border-radius:8px;border:1px solid rgba(255,255,255,0.12);
+  }
+  .stamp.hidden{display:none;}
 </style>
 </head>
 <body>
-  <div class="app">
-    <div class="field">
+  <div class="app" id="app">
+    <div class="stamp" id="stamp">08.09.2025 - v12 - Jimmy James</div>
+
+    <div class="field" id="field">
       <!-- CLOCK -->
-      <div class="clock-strip">
-        <div class="time-rot"><span class="time" id="clock">0:00</span></div>
+      <div class="clock-strip" id="clockStrip">
+        <div class="time-rot">
+          <span class="time" id="clock">0:00</span>
+        </div>
         <div class="blink-mask" id="blinkMask"></div>
       </div>
 
-      <!-- BAR -->
-      <div class="band">
+      <!-- BOTTOM progress band -->
+      <div class="band" id="bandBottom">
         <div class="segments">
-          <div class="seg blue" id="segB"></div>
+          <div class="seg blue"  id="segB"></div>
           <div class="seg green" id="segG"></div>
-          <div class="seg red" id="segR"></div>
+          <div class="seg red"   id="segR"></div>
         </div>
         <div class="markers">
-          <div class="marker blue" id="lineB"></div>
+          <div class="marker blue"  id="lineB"></div>
           <div class="marker green" id="lineG"></div>
-          <div class="marker end" id="lineEnd"></div>
+          <div class="marker end"   id="lineEnd"></div>
+
+          <!-- labels on the lines -->
           <div class="marker-label blue"  id="labelB">4:00</div>
           <div class="marker-label green" id="labelG">14:00</div>
           <div class="marker-label red"   id="labelEnd">20:00</div>
         </div>
+
+        <!-- Total time (white) bottom-right -->
         <div class="total-overlay" id="totalOverlay">20:00</div>
       </div>
 
       <div class="end-blink" id="endBlink"></div>
-      <div class="start-slab" id="startSlab"><button id="startBtn">START</button></div>
+
+      <!-- Big left START slab -->
+      <div class="start-slab" id="startSlab">
+        <button id="startBtn">START</button>
+      </div>
     </div>
 
-    <!-- Settings -->
+    <!-- Bottom info bar -->
+    <div class="bar">
+      <span class="pill"><span class="dot blue"></span><span id="bShow">4:00</span></span>
+      <span class="pill"><span class="dot green"></span><span id="gShow">10:00</span></span>
+      <span class="pill"><span class="dot red"></span><span id="rShow">6:00</span></span>
+      <div class="spacer"></div>
+      <span class="pill" title="Total time"><strong id="totalShow">20:00</strong></span>
+    </div>
+
+    <!-- Settings (opens via triple tap anywhere) -->
     <div class="sheet" id="sheet">
       <div class="card">
-        <h2>Settings</h2>
-        <div style="display:flex;gap:10px;">
+        <div class="card-header">
+          <h2 class="card-title">Improv Timer Settings</h2>
+          <div class="status" id="statusBox">
+            <span class="dot pause" id="miniDot"></span>
+            <span id="miniStatus">Paused</span>
+            <span class="mini-divider">·</span>
+            <span class="mini-time" id="miniClock">0:00</span>
+            <span class="mini-total" id="miniTotal">/ 20:00</span>
+          </div>
+        </div>
+
+        <div class="card-body">
+          <div class="row">
+            <!-- 1. Blue -->
+            <div class="group themed blue">
+              <h4><span>1.</span> <span class="dot blue"></span> <strong>Blue</strong></h4>
+              <div class="counter">
+                <span class="lbl">Minutes</span>
+                <button class="btnStep" data-seg="b" data-kind="m" data-d="-1">−</button>
+                <span class="val" id="bMinVal">4</span>
+                <button class="btnStep" data-seg="b" data-kind="m" data-d="1">+</button>
+              </div>
+              <div class="counter">
+                <span class="lbl">Seconds (×5)</span>
+                <button class="btnStep" data-seg="b" data-kind="s" data-d="-1">−5</button>
+                <span class="val" id="bSecOnly">00</span>
+                <button class="btnStep" data-seg="b" data-kind="s" data-d="1">+5</button>
+              </div>
+            </div>
+
+            <!-- 2. Green -->
+            <div class="group themed green">
+              <h4><span>2.</span> <span class="dot green"></span> <strong>Green</strong></h4>
+              <div class="counter">
+                <span class="lbl">Minutes</span>
+                <button class="btnStep" data-seg="g" data-kind="m" data-d="-1">−</button>
+                <span class="val" id="gMinVal">10</span>
+                <button class="btnStep" data-seg="g" data-kind="m" data-d="1">+</button>
+              </div>
+              <div class="counter">
+                <span class="lbl">Seconds (×5)</span>
+                <button class="btnStep" data-seg="g" data-kind="s" data-d="-1">−5</button>
+                <span class="val" id="gSecOnly">00</span>
+                <button class="btnStep" data-seg="g" data-kind="s" data-d="1">+5</button>
+              </div>
+            </div>
+
+            <!-- 3. Red -->
+            <div class="group themed red">
+              <h4><span>3.</span> <span class="dot red"></span> <strong>Red</strong></h4>
+              <div class="counter">
+                <span class="lbl">Minutes</span>
+                <button class="btnStep" data-seg="r" data-kind="m" data-d="-1">−</button>
+                <span class="val" id="rMinVal">6</span>
+                <button class="btnStep" data-seg="r" data-kind="m" data-d="1">+</button>
+              </div>
+              <div class="counter">
+                <span class="lbl">Seconds (×5)</span>
+                <button class="btnStep" data-seg="r" data-kind="s" data-d="-1">−5</button>
+                <span class="val" id="rSecOnly">00</span>
+                <button class="btnStep" data-seg="r" data-kind="s" data-d="1">+5</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card-footer">
           <button class="btn" id="pauseBtn">Pause</button>
           <button class="btn primary" id="returnBtn">Return</button>
-          <button class="btn warn" id="resetBtn">Reset</button>
+          <button class="btn warn" id="resetBtn" title="Reset timer to 0">Reset</button>
         </div>
       </div>
     </div>
@@ -123,86 +315,397 @@
 
 <script>
 (function(){
-  const clock=document.getElementById('clock');
-  const segB=document.getElementById('segB'), segG=document.getElementById('segG'), segR=document.getElementById('segR');
-  const lineB=document.getElementById('lineB'), lineG=document.getElementById('lineG'), lineEnd=document.getElementById('lineEnd');
-  const labelB=document.getElementById('labelB'), labelG=document.getElementById('labelG'), labelEnd=document.getElementById('labelEnd');
-  const totalOverlay=document.getElementById('totalOverlay');
-  const startSlab=document.getElementById('startSlab'), startBtn=document.getElementById('startBtn');
-  const sheet=document.getElementById('sheet');
-  const pauseBtn=document.getElementById('pauseBtn'), returnBtn=document.getElementById('returnBtn'), resetBtn=document.getElementById('resetBtn');
-  const endBlink=document.getElementById('endBlink');
-  const blinkMask=document.getElementById('blinkMask');
+  const root = document.body;
 
-  let bSec=4*60,gSec=10*60,rSec=6*60;let totalSec=bSec+gSec+rSec;
-  let elapsed=0,running=false,rafId=null,lastTick=null;
-  let scheduledFinalBlinks=new Set(),blinking=false;
+  const clock = document.getElementById('clock');
+  const clockStrip = document.getElementById('clockStrip');
 
-  function fmtSS(t){const m=Math.floor(t/60),s=Math.floor(t%60);return `${m}:${s.toString().padStart(2,'0')}`;}
-  function updateMarkers(){
-    const bPct=(bSec/totalSec)*100,gPct=((bSec+gSec)/totalSec)*100;
-    lineB.style.left=`calc(${bPct}% - 1px)`;lineG.style.left=`calc(${gPct}% - 1px)`;lineEnd.style.left=`calc(100% - 2px)`;
-    labelB.textContent=fmtSS(bSec);labelB.style.left=`calc(${bPct}% - 24px)`;
-    labelG.textContent=fmtSS(bSec+gSec);labelG.style.left=`calc(${gPct}% - 32px)`;
-    labelEnd.textContent=fmtSS(totalSec);labelEnd.style.left=`calc(100% - 40px)`;
-    totalOverlay.textContent=fmtSS(totalSec);
+  const segB = document.getElementById('segB');
+  const segG = document.getElementById('segG');
+  const segR = document.getElementById('segR');
+
+  const lineB = document.getElementById('lineB');
+  const lineG = document.getElementById('lineG');
+  const lineEnd = document.getElementById('lineEnd');
+  const labelB = document.getElementById('labelB');
+  const labelG = document.getElementById('labelG');
+  const labelEnd = document.getElementById('labelEnd');
+
+  const blinkMask = document.getElementById('blinkMask');
+  const endBlink = document.getElementById('endBlink');
+
+  const bShow = document.getElementById('bShow');
+  const gShow = document.getElementById('gShow');
+  const rShow = document.getElementById('rShow');
+  const totalShow = document.getElementById('totalShow');
+  const totalOverlay = document.getElementById('totalOverlay');
+
+  const startSlab = document.getElementById('startSlab');
+  const startBtn = document.getElementById('startBtn');
+
+  const sheet = document.getElementById('sheet');
+  const pauseBtn = document.getElementById('pauseBtn');
+  const returnBtn = document.getElementById('returnBtn');
+  const resetBtn = document.getElementById('resetBtn');
+
+  const miniDot = document.getElementById('miniDot');
+  const miniStatus = document.getElementById('miniStatus');
+  const miniClock = document.getElementById('miniClock');
+  const miniTotal = document.getElementById('miniTotal');
+
+  const bMinVal = document.getElementById('bMinVal');
+  const bSecOnly = document.getElementById('bSecOnly');
+  const gMinVal = document.getElementById('gMinVal');
+  const gSecOnly = document.getElementById('gSecOnly');
+  const rMinVal = document.getElementById('rMinVal');
+  const rSecOnly = document.getElementById('rSecOnly');
+
+  const stamp = document.getElementById('stamp');
+
+  // Defaults BGR: 4 / 10 / 6
+  let bSec = 4*60, gSec = 10*60, rSec = 6*60;
+  let totalSec = bSec + gSec + rSec;
+
+  let elapsed = 0; // keep counting past total
+  let running = false;
+  let rafId = null;
+  let lastTick = null;
+
+  let scheduledFinalBlinks = new Set();
+  let blinking = false;
+
+  /* ---------- Orientation + Giant clock fitting ---------- */
+  function applyOrientationClass(){
+    const portrait = window.innerHeight >= window.innerWidth;
+    root.classList.toggle('portrait', portrait);
+    root.classList.toggle('landscape', !portrait);
   }
-  function updateSegs(sec){
-    const eff=Math.min(sec,totalSec),pct=(eff/totalSec)*100;
-    const bPct=(bSec/totalSec)*100,gPct=(gSec/totalSec)*100;
-    segB.style.width=Math.min(pct,bPct)+'%';
-    segG.style.width=Math.min(Math.max(pct-bPct,0),gPct)+'%';
-    segR.style.width=Math.min(Math.max(pct-bPct-gPct,0),100-bPct-gPct)+'%';
+
+  function fitClock(){
+    const rect = clockStrip.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return;
+
+    const isPortrait = root.classList.contains('portrait');
+
+    if (isPortrait){
+      const maxRotW = rect.width * 0.995;  // allow near full width
+      const maxRotH = rect.height * 0.985; // near full height
+      let lo=4, hi=Math.max(12, rect.height*1.8);
+      const fits = (px)=>{
+        clock.style.fontSize = px + 'px';
+        const W = clock.scrollWidth, H = clock.scrollHeight;
+        const rotW = H, rotH = W; // rotated 90°
+        return (rotW <= maxRotW) && (rotH <= maxRotH);
+      };
+      while (fits(hi)) hi *= 1.18;
+      while (hi - lo > 1){ const mid = Math.floor((lo+hi)/2); if (fits(mid)) lo = mid; else hi = mid; }
+      clock.style.fontSize = lo + 'px';
+    } else {
+      const maxW = rect.width * 0.995;
+      const maxH = rect.height * 0.965;
+      let lo=4, hi=Math.max(12, rect.height*1.8);
+      const fits = (px)=>{
+        clock.style.fontSize = px + 'px';
+        const W = clock.scrollWidth, H = clock.scrollHeight;
+        return (H <= maxH) && (W <= maxW);
+      };
+      while (fits(hi)) hi *= 1.18;
+      while (hi - lo > 1){ const mid = Math.floor((lo+hi)/2); if (fits(mid)) lo = mid; else hi = mid; }
+      clock.style.fontSize = lo + 'px';
+    }
   }
-  function updateColor(){
-    if(elapsed< bSec) clock.style.color="var(--blue)";
-    else if(elapsed< bSec+gSec) clock.style.color="var(--green)";
-    else if(elapsed< totalSec) clock.style.color="var(--red)";
-    else clock.style.color="var(--after)";
+
+  const fitClockThrottled = throttle(()=>{ applyOrientationClass(); fitClock(); }, 50);
+
+  /* ---------- Formatters ---------- */
+  function fmtSS(t){
+    const m = Math.floor(t/60);
+    const s = Math.floor(t%60);
+    return `${m}:${s.toString().padStart(2,'0')}`;
   }
-  function start(){if(running)return;running=true;startSlab.classList.add('start-hidden');lastTick=performance.now();tick();}
-  function pause(){running=false;if(rafId)cancelAnimationFrame(rafId);startSlab.classList.remove('start-hidden');}
-  function reset(){pause();elapsed=0;scheduledFinalBlinks.clear();blinking=false;blinkMask.style.display='none';
-    clock.textContent="0:00";updateSegs(0);updateColor();endBlink.style.display='none';}
-  function tick(now){if(!running)return;if(!now)now=performance.now();
-    const dt=(now-lastTick)/1000;if(dt>=1){elapsed+=Math.floor(dt);lastTick+=Math.floor(dt)*1000;
-      clock.textContent=fmtSS(elapsed);updateSegs(elapsed);updateColor();
+
+  /* ---------- Digit color per segment; AFTER total -> light blue ---------- */
+  function updateDigitColor(){
+    const bEnd = bSec;
+    const gEnd = bSec + gSec;
+    if (elapsed < bEnd){
+      clock.style.color = getComputedStyle(document.documentElement).getPropertyValue('--blue');
+    } else if (elapsed < gEnd){
+      clock.style.color = getComputedStyle(document.documentElement).getPropertyValue('--green');
+    } else if (elapsed < totalSec){
+      clock.style.color = getComputedStyle(document.documentElement).getPropertyValue('--red');
+    } else {
+      clock.style.color = getComputedStyle(document.documentElement).getPropertyValue('--after');
+    }
+  }
+
+  /* ---------- Markers & labels (inside bottom band) ---------- */
+  function positionMarkers(){
+    const bPct = totalSec ? (bSec/totalSec)*100 : 0;
+    const gPct = totalSec ? ((bSec+gSec)/totalSec)*100 : 0;
+
+    lineB.style.left = `calc(${bPct}% - 1px)`;
+    lineG.style.left = `calc(${gPct}% - 1px)`;
+    lineEnd.style.left = `calc(100% - 2px)`; // exact end
+
+    // Labels placed to the LEFT of each line (red must be readable)
+    labelB.textContent  = fmtSS(bSec);
+    labelG.textContent  = fmtSS(bSec+gSec);
+    labelEnd.textContent= fmtSS(totalSec);
+
+    labelB.style.left   = `calc(${bPct}% - 24px)`;
+    labelG.style.left   = `calc(${gPct}% - 32px)`;
+    labelEnd.style.left = `calc(100% - 40px)`;
+  }
+
+  function refreshInfoBar(){
+    bShow.textContent = fmtSS(bSec);
+    gShow.textContent = fmtSS(gSec);
+    rShow.textContent = fmtSS(rSec);
+    const totalTxt = fmtSS(totalSec);
+    totalShow.textContent = totalTxt;
+    totalOverlay.textContent = totalTxt;
+    miniTotal.textContent = `/ ${totalTxt}`;
+  }
+
+  /* ---------- Mini status in settings header ---------- */
+  function setMiniStatus(){
+    miniClock.textContent = fmtSS(elapsed);
+    if (elapsed === 0 && !running){
+      miniStatus.textContent = 'Reset';
+      miniDot.className = 'dot reset';
+    } else if (running){
+      miniStatus.textContent = 'Running';
+      miniDot.className = 'dot run';
+    } else {
+      miniStatus.textContent = 'Paused';
+      miniDot.className = 'dot pause';
+    }
+  }
+
+  /* ---------- Segments fill ---------- */
+  function updateSegments(sec){
+    const eff = Math.min(sec, totalSec);
+    const pctTotal = totalSec ? (eff/totalSec)*100 : 0;
+
+    const bPct = totalSec ? (bSec/totalSec)*100 : 0;
+    const gPct = totalSec ? (gSec/totalSec)*100 : 0;
+    const rPct = 100 - bPct - gPct;
+
+    const bW = Math.min(pctTotal, bPct);
+    const gW = Math.min(Math.max(pctTotal - bPct, 0), gPct);
+    const rW = Math.min(Math.max(pctTotal - bPct - gPct, 0), rPct);
+
+    segB.style.width = bW + '%';
+    segG.style.width = gW + '%';
+    segR.style.width = rW + '%';
+  }
+
+  /* ---------- Watermark visibility: only pre-start & first 10s ---------- */
+  function updateStampVisibility(){
+    const show = (!running && elapsed === 0) || (elapsed > 0 && elapsed <= 10);
+    stamp.classList.toggle('hidden', !show);
+  }
+
+  /* ---------- Timer control ---------- */
+  function start(){
+    if (running || totalSec === 0) return;
+    running = true;
+    startSlab.classList.add('start-hidden');
+    endBlink.style.display = 'none';
+    lastTick = performance.now();
+    setMiniStatus();
+    updateStampVisibility();
+    tick();
+  }
+  function pause(){
+    running = false;
+    if (rafId){ cancelAnimationFrame(rafId); rafId = null; }
+    startSlab.classList.remove('start-hidden');
+    setMiniStatus();
+    updateStampVisibility();
+  }
+  function resetElapsed(){
+    elapsed = 0;
+    scheduledFinalBlinks.clear();
+    blinking = false;
+    blinkMask.style.display = 'none';
+    endBlink.style.display = 'none';
+    clock.textContent = fmtSS(0);
+    updateDigitColor();
+    updateSegments(0);
+    setMiniStatus();
+    fitClockThrottled();
+    updateStampVisibility();
+  }
+
+  function tick(now){
+    if (!running) return;
+    if (!now) now = performance.now();
+    const dt = (now - lastTick) / 1000;
+    if (dt >= 0.25){
+      const add = Math.floor(dt);
+      elapsed += add;                    // keep counting past total
+      lastTick += add*1000;
+
+      clock.textContent = fmtSS(elapsed);
+      updateDigitColor();
+      fitClockThrottled();
+
+      updateSegments(elapsed);
       handleFinalBlinkScheduling();
-      if(elapsed>=totalSec){endBlink.style.display='block';}}
-    rafId=requestAnimationFrame(tick);}
-  async function queueBlinkSequence(n){
-    while(blinking) await new Promise(r=>setTimeout(r,50));
-    blinking=true;
-    for(let i=0;i<n;i++){
-      blinkMask.style.display='block';await new Promise(r=>setTimeout(r,500));
-      blinkMask.style.display='none';await new Promise(r=>setTimeout(r,500));
-    }
-    blinkMask.style.display='none';blinking=false;
-  }
-  function handleFinalBlinkScheduling(){
-    const finalStart=bSec+gSec;
-    if(elapsed>=finalStart && elapsed<totalSec){
-      const minLeft=Math.ceil((totalSec-elapsed)/60);
-      if([3,2,1].includes(minLeft) && !scheduledFinalBlinks.has(minLeft) && (elapsed-finalStart)%60===0){
-        scheduledFinalBlinks.add(minLeft);
-        queueBlinkSequence(minLeft);
-      }
-    }
-  }
-  startBtn.addEventListener('click',()=>{sheet.classList.remove('open');start();});
-  pauseBtn.addEventListener('click',pause);
-  returnBtn.addEventListener('click',()=>sheet.classList.remove('open'));
-  resetBtn.addEventListener('click',reset);
 
-  // triple tap
-  let taps=0,timer=null;
-  document.addEventListener('pointerdown',()=>{
-    taps++;if(timer)clearTimeout(timer);
-    timer=setTimeout(()=>{taps=0;},600);
-    if(taps>=3){taps=0;sheet.classList.add('open');}
+      if (elapsed >= totalSec){
+        endBlink.style.display = 'block';
+      }
+
+      setMiniStatus();
+      updateStampVisibility();
+    }
+    rafId = requestAnimationFrame(tick);
+  }
+
+  /* ---------- Final (RED) segment minute blinks ---------- */
+  function inFinalSegment(){
+    const finalStart = bSec + gSec; // red starts after blue+green
+    return elapsed >= finalStart && elapsed < totalSec;
+  }
+
+  const sleep = (ms)=>new Promise(r=>setTimeout(r,ms));
+  async function queueBlinkSequence(n){
+    while (blinking) await sleep(40);
+    blinking = true;
+    for (let i=0;i<n;i++){
+      blinkMask.style.display = 'block'; await sleep(500);
+      blinkMask.style.display = 'none';  await sleep(500);
+    }
+    blinkMask.style.display = 'none';
+    blinking = false;
+  }
+
+  async function handleFinalBlinkScheduling(){
+    if (!inFinalSegment()) return;
+    const finalStart = bSec + gSec;
+    const remaining = totalSec - elapsed; // seconds left in red
+    const wholeMinLeft = Math.ceil(remaining / 60);
+    const atBoundary = ((elapsed - finalStart) % 60 === 0);
+    if (atBoundary && [3,2,1].includes(wholeMinLeft) && !scheduledFinalBlinks.has(wholeMinLeft)){
+      scheduledFinalBlinks.add(wholeMinLeft);
+      await queueBlinkSequence(wholeMinLeft); // 0.5s on / 0.5s off
+    }
+  }
+
+  /* ---------- Triple-tap to open settings ---------- */
+  let tapCount = 0, tapTimer = null;
+  document.addEventListener('pointerdown', ()=>{
+    tapCount++;
+    if (tapTimer) clearTimeout(tapTimer);
+    tapTimer = setTimeout(()=>{ tapCount = 0; }, 600);
+    if (tapCount >= 3){
+      tapCount = 0;
+      openSettings();
+    }
   });
 
-  updateMarkers();updateSegs(0);updateColor();
+  // Settings open/close
+  const openSettings = ()=>{
+    sheet.classList.add('open');
+    setMiniStatus();
+  };
+  const closeSettings = ()=>{
+    sheet.classList.remove('open');
+  };
+
+  // Settings buttons
+  pauseBtn.addEventListener('click', ()=>{ pause(); setMiniStatus(); });
+  returnBtn.addEventListener('click', ()=>{ saveTimes(); closeSettings(); });
+  resetBtn.addEventListener('click', ()=>{ pause(); resetElapsed(); });
+
+  // Start slab
+  startBtn.addEventListener('click', ()=>{ closeSettings(); start(); });
+
+  /* ---------- Save times / update UI ---------- */
+  function saveTimes(){
+    totalSec = bSec + gSec + rSec;
+    refreshInfoBar();
+    scheduledFinalBlinks.clear();
+    updateDigitColor();
+    updateSegments(elapsed);
+    positionMarkers();
+    clock.textContent = fmtSS(elapsed);
+    setMiniStatus();
+    fitClockThrottled();
+    updateStampVisibility();
+  }
+
+  // Stepper logic (minutes ±1, seconds ±5)
+  function updateDisplayVals(){
+    bMinVal.textContent = Math.floor(bSec/60);
+    bSecOnly.textContent = String(Math.floor(bSec%60)).padStart(2,'0');
+    gMinVal.textContent = Math.floor(gSec/60);
+    gSecOnly.textContent = String(Math.floor(gSec%60)).padStart(2,'0');
+    rMinVal.textContent = Math.floor(rSec/60);
+    rSecOnly.textContent = String(Math.floor(rSec%60)).padStart(2,'0');
+  }
+  function adjust(seg, kind, delta){
+    const clamp = (v)=>Math.max(0, Math.min(6*60*60, v)); // up to 6h per segment
+    const step = (kind==='m') ? 60 : 5; // seconds step is 5
+    if (seg==='b'){
+      bSec = clamp(bSec + delta*step);
+    } else if (seg==='g'){
+      gSec = clamp(gSec + delta*step);
+    } else if (seg==='r'){
+      rSec = clamp(rSec + delta*step);
+    }
+    updateDisplayVals();
+    totalSec = bSec + gSec + rSec;
+    refreshInfoBar();
+    positionMarkers();
+    updateSegments(elapsed);
+    updateDigitColor();
+    setMiniStatus();
+  }
+  document.querySelectorAll('.btnStep').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const seg = btn.getAttribute('data-seg');
+      const kind = btn.getAttribute('data-kind'); // 'm' or 's' (5s step)
+      const d = parseInt(btn.getAttribute('data-d'),10);
+      adjust(''+seg, ''+kind, d);
+    });
+  });
+
+  /* ---------- Init ---------- */
+  applyOrientationClass();
+  updateDisplayVals();
+  refreshInfoBar();
+  positionMarkers();
+  updateSegments(0);
+  clock.textContent = fmtSS(0);
+  updateDigitColor();
+  fitClock();
+  setMiniStatus();
+  updateStampVisibility();
+
+  window.addEventListener('resize', fitClockThrottled);
+  window.addEventListener('orientationchange', fitClockThrottled);
+
+  // Optional keyboard helpers
+  window.addEventListener('keydown', (e)=>{
+    if (e.key === ' '){ e.preventDefault(); running ? pause() : start(); }
+    else if (e.key.toLowerCase()==='s'){ sheet.classList.contains('open') ? closeSettings() : openSettings(); }
+    else if (e.key.toLowerCase()==='r'){ pause(); resetElapsed(); }
+  });
+
+  /* ---------- helpers ---------- */
+  function throttle(fn, ms){
+    let last = 0, t;
+    return function(){
+      const now = performance.now();
+      if (now - last >= ms){ last = now; fn(); }
+      else { clearTimeout(t); t = setTimeout(()=>{ last = performance.now(); fn(); }, ms - (now - last)); }
+    };
+  }
+
 })();
 </script>
 </body>
