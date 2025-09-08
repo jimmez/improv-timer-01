@@ -3,11 +3,10 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-<title>Improv Timer v10 (RGB)</title>
+<title>Improv Timer v11 (RGB)</title>
 <style>
   :root{
-    --red:#ff0000;          /* pure red for main timer & markers */
-    --red-settings:#ff5a2f; /* slightly orange red for SETTINGS UI ONLY */
+    --red:#ff0000;
     --green:#25d366;
     --blue:#3aa8ff;
 
@@ -15,9 +14,7 @@
     --fg:#ffffff;
     --danger:#ff2222;
 
-    --digits-yellow:#ffd400; /* red segment digits */
-    --digits-pink:#ff6fb5;   /* green segment digits */
-    --digits-white:#ffffff;  /* blue segment digits */
+    --bandH: clamp(28px, 16vh, 160px); /* height of top/bottom progress bands */
   }
 
   html,body{
@@ -29,69 +26,63 @@
   .app{position:relative;height:100%;width:100%;display:flex;flex-direction:column;}
   .field{position:relative;flex:1 1 auto;overflow:hidden;background:var(--bg);}
 
-  /* Segments (accumulating red → green → blue) */
-  .segments{position:absolute;inset:0;display:flex;pointer-events:none;z-index:1;}
+  /* ====== PROGRESS BANDS (top & bottom) ====== */
+  .band{position:absolute;left:0;right:0;height:var(--bandH);z-index:1;overflow:hidden;}
+  .band.top{top:0;}
+  .band.bottom{bottom:0;}
+
+  .segments{position:absolute;inset:0;display:flex;pointer-events:none;}
   .seg{height:100%;width:0}
   .seg.red{background:var(--red)}
   .seg.green{background:var(--green)}
   .seg.blue{background:var(--blue)}
 
-  /* Marker lines, dots & labels (bottom black space) */
-  .markers{position:absolute;inset:0;pointer-events:none;z-index:9;}
+  /* Marker lines exist ONLY inside the bands */
+  .markers{position:absolute;inset:0;pointer-events:none;}
   .marker{position:absolute;top:0;bottom:0;width:2px;opacity:.98;}
   .marker.red{background:var(--red)}
   .marker.green{background:var(--green)}
-  .marker.end{background:var(--blue);width:3px;} /* end line is blue & a bit thicker */
+  .marker.end{background:var(--blue);width:3px;} /* end line a bit thicker */
 
-  .marker-dot{
-    position:absolute;bottom:0;width:10px;height:10px;border-radius:50%;
-    transform:translate(-50%, 50%); /* center on the line, sitting on bottom edge */
-    border:1px solid rgba(0,0,0,.45);
+  /* ====== CLOCK STRIP (always black background) ====== */
+  .clock-strip{
+    position:absolute;left:0;right:0;top:var(--bandH);bottom:var(--bandH);
+    background:#000; /* guarantees no bars behind numbers */
+    z-index:2;display:flex;align-items:center;justify-content:center;
   }
-  .marker-dot.red{background:var(--red)}
-  .marker-dot.green{background:var(--green)}
-  .marker-dot.blue{background:var(--blue)}
+  .time-rot{transform-origin:center;}
+  .portrait .time-rot{ transform: rotate(-90deg); }  /* portrait: bottom→top */
+  .landscape .time-rot{ transform: none; }
 
-  .marker-label{
-    position:absolute;bottom:6px;font-size:12px;opacity:0.9;background:rgba(0,0,0,.35);
-    padding:2px 6px;border-radius:6px;border:1px solid rgba(255,255,255,.12);
-    white-space:nowrap;pointer-events:none;
+  .time{
+    display:block;line-height:0.9;font-weight:900;letter-spacing:0.02em;white-space:nowrap;
+    text-shadow:0 0 22px rgba(0,0,0,.7);
+    color:var(--red); /* will change with segment: red/green/blue */
+    font-size:10vw; /* JS resizes to max */
   }
-  .marker-label.left  { transform: translateX(-8px); }
-  .marker-label.right { transform: translateX( 8px); }
 
-  /* Big total overlay (inside the bar area, bottom-right) */
+  /* Blink overlay (0.5s color / 0.5s black handled in JS) */
+  .blink-mask{position:absolute;left:0;right:0;top:var(--bandH);bottom:var(--bandH);
+    background:#000;pointer-events:none;z-index:3;display:none;}
+
+  /* End-of-timer black/red blink (full screen) */
+  .end-blink{position:absolute;inset:0;pointer-events:none;z-index:4;background:var(--bg);
+    animation:endBlink .5s steps(2,jump-none) infinite;display:none;}
+  @keyframes endBlink{0%{background:var(--bg)}50%{background:var(--danger)}100%{background:var(--danger)}}
+
+  /* Big total overlay – tuck into the bottom band, right corner */
   .total-overlay{
-    position:absolute;right:12px;bottom:12px;z-index:8;
+    position:absolute;right:10px;bottom:6px;z-index:2;
     font-weight:900;font-variant-numeric:tabular-nums;
-    font-size:clamp(18px, 5.2vw, 36px);
+    font-size:clamp(14px, 3.8vw, 28px);
     color:#ffffff;text-shadow:0 0 16px rgba(0,0,0,.6);
     background:rgba(0,0,0,.35);padding:2px 8px;border-radius:8px;border:1px solid rgba(255,255,255,.12);
   }
 
-  /* Orientation-aware stopwatch (main big digits) */
-  .time-wrap{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:2;pointer-events:none;}
-  .time-rot{transform-origin:center;}
-  .portrait .time-rot{ transform: rotate(-90deg); }  /* portrait: bottom→top */
-  .landscape .time-rot{ transform: none; }           /* landscape: horizontal */
-  .time{
-    display:block;line-height:0.9;font-weight:900;letter-spacing:0.02em;white-space:nowrap;
-    text-shadow:0 0 22px rgba(0,0,0,.7);
-    color:var(--digits-yellow); /* will change with segment */
-  }
-
-  /* Blink overlay (0.5s color / 0.5s black handled in JS) */
-  .blink-mask{position:absolute;inset:0;background:#000;pointer-events:none;z-index:5;display:none;}
-
-  /* End-of-timer black/red blink */
-  .end-blink{position:absolute;inset:0;pointer-events:none;z-index:6;background:var(--bg);
-    animation:endBlink .5s steps(2,jump-none) infinite;display:none;}
-  @keyframes endBlink{0%{background:var(--bg)}50%{background:var(--danger)}100%{background:var(--danger)}}
-
   /* Bottom info bar */
   .bar{flex:0 0 auto;padding:10px 14px;display:flex;align-items:center;gap:10px;
     background:rgba(0,0,0,.55);backdrop-filter:blur(4px);border-top:1px solid rgba(255,255,255,.08);
-    font-size:clamp(12px,2.4vw,18px);z-index:4;}
+    font-size:clamp(12px,2.4vw,18px);z-index:5;}
   .pill{padding:6px 10px;border:1px solid rgba(255,255,255,.18);border-radius:999px;
     display:inline-flex;align-items:center;gap:8px;white-space:nowrap;}
   .dot{width:10px;height:10px;border-radius:50%;display:inline-block;}
@@ -104,7 +95,7 @@
     position:absolute;left:0;top:0;bottom:0;width:20%;
     display:flex;align-items:center;justify-content:center;
     background:rgba(58,168,255,0.07);border-right:1px solid rgba(255,255,255,.12);
-    cursor:pointer;user-select:none;z-index:7;
+    cursor:pointer;user-select:none;z-index:6;
   }
   .start-slab button{
     width:88%;max-width:340px;padding:18px 12px;border-radius:16px;
@@ -113,7 +104,7 @@
   }
   .start-hidden{display:none;}
 
-  /* Settings sheet (opened by triple-tap anywhere) */
+  /* Settings sheet (triple-tap) */
   .sheet{position:fixed;inset:0;background:rgba(0,0,0,.66);display:none;align-items:center;justify-content:center;z-index:11;}
   .sheet.open{display:flex}
   .card{
@@ -147,7 +138,6 @@
   .row + .row{margin-top:12px;}
   .group{flex:1 1 260px;min-width:260px;background:#121212;border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:12px;}
 
-  /* Themed groups (letters/symbols colored to segment) */
   .group.themed{position:relative;--theme:#fff;}
   .group.themed h4{margin:0 0 8px 0;display:flex;align-items:center;gap:8px;font-size:16px;color:var(--theme)}
   .group.themed .lbl{color:var(--theme);opacity:.9}
@@ -157,7 +147,7 @@
     color:#000; background:color-mix(in srgb, var(--theme) 50%, #101010 50%);
     box-shadow:inset 0 0 0 1px rgba(0,0,0,.25);
   }
-  .group.red   { --theme: var(--red-settings); } /* slightly orange ONLY in settings */
+  .group.red   { --theme: #ff5a2f; } /* slightly orange in settings only */
   .group.green { --theme: var(--green); }
   .group.blue  { --theme: var(--blue); }
 
@@ -173,67 +163,64 @@
     padding:10px 16px calc(10px + env(safe-area-inset-bottom)) 16px;
     display:flex;align-items:center;gap:12px;
   }
-
   .btn{border:1px solid rgba(255,255,255,.18);background:#101010;color:var(--fg);padding:12px 16px;border-radius:12px;font-weight:800;cursor:pointer;}
   .btn.primary{background:var(--blue);color:#002235}
   .btn.warn{background:#1a0000;color:#ffb3b3;border-color:#551111}
 
-  /* Stamp + triple-tap hint */
-  .stamp{position:fixed;right:10px;top:8px;z-index:12;font-size:12px;opacity:0.85;letter-spacing:0.4px;
-    background:rgba(0,0,0,0.35);padding:2px 6px;border-radius:8px;border:1px solid rgba(255,255,255,0.12);}
-  body.has-sheet .stamp{top:auto;bottom:8px;right:10px;opacity:.6;} /* move stamp when settings open */
-
-  .tap-hint{
-    position:fixed;left:50%;bottom:80px;transform:translateX(-50%);
-    z-index:12;font-size:13px;opacity:0;pointer-events:none;
-    background:rgba(0,0,0,.7);padding:8px 12px;border-radius:999px;border:1px solid rgba(255,255,255,.18);
-    transition:opacity .2s ease;
+  /* Watermark */
+  .stamp{
+    position:fixed;right:10px;top:8px;z-index:12;font-size:12px;opacity:0.85;letter-spacing:0.4px;
+    background:rgba(0,0,0,0.35);padding:2px 6px;border-radius:8px;border:1px solid rgba(255,255,255,0.12);
   }
-  .tap-hint.show{opacity:1;}
-  body.has-sheet .tap-hint{display:none !important;} /* hide hint while settings are open */
+  .stamp.hidden{display:none;}
 </style>
 </head>
 <body>
   <div class="app" id="app">
-    <div class="stamp">08.09.2025 - v10 - Jimmy James</div>
-    <div class="tap-hint" id="tapHint">tap three times on screen for settings menu</div>
+    <div class="stamp" id="stamp">08.09.2025 - v11 - Jimmy James</div>
 
     <div class="field" id="field">
-      <!-- Accumulating segments -->
-      <div class="segments">
-        <div class="seg red"   id="segR"></div>
-        <div class="seg green" id="segG"></div>
-        <div class="seg blue"  id="segB"></div>
+      <!-- TOP progress band -->
+      <div class="band top">
+        <div class="segments">
+          <div class="seg red"   id="segR_top"></div>
+          <div class="seg green" id="segG_top"></div>
+          <div class="seg blue"  id="segB_top"></div>
+        </div>
+        <div class="markers">
+          <div class="marker red"   id="lineR_top"></div>
+          <div class="marker green" id="lineG_top"></div>
+          <div class="marker end"   id="lineEnd_top"></div>
+        </div>
       </div>
 
-      <!-- Marker lines + dots + labels -->
-      <div class="markers">
-        <div class="marker red"   id="lineR"></div>
-        <div class="marker green" id="lineG"></div>
-        <div class="marker end"   id="lineEnd"></div>
-
-        <div class="marker-dot red"   id="dotR"></div>
-        <div class="marker-dot green" id="dotG"></div>
-        <div class="marker-dot blue"  id="dotEnd"></div>
-
-        <div class="marker-label left"  id="labelR">4:00</div>
-        <div class="marker-label left"  id="labelG">14:00</div>
-        <div class="marker-label right" id="labelEnd">20:00</div>
-      </div>
-
-      <!-- Blink overlays -->
-      <div class="blink-mask" id="blinkMask"></div>
-      <div class="end-blink" id="endBlink"></div>
-
-      <!-- Stopwatch -->
-      <div class="time-wrap">
+      <!-- CLOCK strip (always black under numbers) -->
+      <div class="clock-strip">
         <div class="time-rot">
           <span class="time" id="clock">0:00</span>
         </div>
       </div>
 
-      <!-- Big total overlay inside bar area -->
-      <div class="total-overlay" id="totalOverlay">20:00</div>
+      <!-- bottom progress band -->
+      <div class="band bottom">
+        <div class="segments">
+          <div class="seg red"   id="segR_bot"></div>
+          <div class="seg green" id="segG_bot"></div>
+          <div class="seg blue"  id="segB_bot"></div>
+        </div>
+        <div class="markers">
+          <div class="marker red"   id="lineR_bot"></div>
+          <div class="marker green" id="lineG_bot"></div>
+          <div class="marker end"   id="lineEnd_bot"></div>
+        </div>
+
+        <!-- Big total lives visually with the bottom band -->
+        <div class="total-overlay" id="totalOverlay">20:00</div>
+      </div>
+
+      <!-- Blink & end blink -->
+      <div class="blink-mask" id="blinkMask"></div>
+      <div class="end-blink" id="endBlink"></div>
 
       <!-- Big left START slab -->
       <div class="start-slab" id="startSlab">
@@ -241,7 +228,7 @@
       </div>
     </div>
 
-    <!-- Bottom status bar -->
+    <!-- Bottom info bar -->
     <div class="bar">
       <span class="pill"><span class="dot red"></span><span id="rShow">4:00</span></span>
       <span class="pill"><span class="dot green"></span><span id="gShow">10:00</span></span>
@@ -268,7 +255,7 @@
           <div class="row">
             <!-- 1. Red (slightly orange theme in settings only) -->
             <div class="group themed red">
-              <h4><span>1.</span> <span class="dot red" style="background:var(--red-settings)"></span> <strong>Red</strong></h4>
+              <h4><span>1.</span> <span class="dot" style="background:#ff5a2f"></span> <strong>Red</strong></h4>
               <div class="counter">
                 <span class="lbl">Minutes</span>
                 <button class="btnStep" data-seg="r" data-kind="m" data-d="-1">−</button>
@@ -335,21 +322,23 @@
   const clock = document.getElementById('clock');
   const field = document.getElementById('field');
 
-  const segR = document.getElementById('segR');
-  const segG = document.getElementById('segG');
-  const segB = document.getElementById('segB');
+  // top band segments
+  const segR_top = document.getElementById('segR_top');
+  const segG_top = document.getElementById('segG_top');
+  const segB_top = document.getElementById('segB_top');
+  // bottom band segments
+  const segR_bot = document.getElementById('segR_bot');
+  const segG_bot = document.getElementById('segG_bot');
+  const segB_bot = document.getElementById('segB_bot');
 
-  const lineR = document.getElementById('lineR');
-  const lineG = document.getElementById('lineG');
-  const lineEnd = document.getElementById('lineEnd');
-
-  const dotR = document.getElementById('dotR');
-  const dotG = document.getElementById('dotG');
-  const dotEnd = document.getElementById('dotEnd');
-
-  const labelR = document.getElementById('labelR');
-  const labelG = document.getElementById('labelG');
-  const labelEnd = document.getElementById('labelEnd');
+  // markers in top band
+  const lineR_top = document.getElementById('lineR_top');
+  const lineG_top = document.getElementById('lineG_top');
+  const lineEnd_top = document.getElementById('lineEnd_top');
+  // markers in bottom band
+  const lineR_bot = document.getElementById('lineR_bot');
+  const lineG_bot = document.getElementById('lineG_bot');
+  const lineEnd_bot = document.getElementById('lineEnd_bot');
 
   const blinkMask = document.getElementById('blinkMask');
   const endBlink = document.getElementById('endBlink');
@@ -367,21 +356,20 @@
   const pauseBtn = document.getElementById('pauseBtn');
   const returnBtn = document.getElementById('returnBtn');
   const resetBtn = document.getElementById('resetBtn');
-  const tapHint = document.getElementById('tapHint');
 
-  // settings header mini status
   const miniDot = document.getElementById('miniDot');
   const miniStatus = document.getElementById('miniStatus');
   const miniClock = document.getElementById('miniClock');
   const miniTotal = document.getElementById('miniTotal');
 
-  // Settings values
   const rMinVal = document.getElementById('rMinVal');
   const rSecOnly = document.getElementById('rSecOnly');
   const gMinVal = document.getElementById('gMinVal');
   const gSecOnly = document.getElementById('gSecOnly');
   const bMinVal = document.getElementById('bMinVal');
   const bSecOnly = document.getElementById('bSecOnly');
+
+  const stamp = document.getElementById('stamp');
 
   // State (seconds) in RGB order — defaults: 4 / 10 / 6
   let rSec = 4*60, gSec = 10*60, bSec = 6*60;
@@ -402,9 +390,10 @@
     root.classList.toggle('landscape', !portrait);
   }
 
-  /* ---------- Font fitting (orientation-aware) ---------- */
+  /* ---------- Font fitting (giant digits) ---------- */
   function fitClock(){
-    const rect = field.getBoundingClientRect();
+    const strip = document.querySelector('.clock-strip');
+    const rect = strip.getBoundingClientRect();
     if (rect.width <= 0 || rect.height <= 0) return;
 
     const isPortrait = root.classList.contains('portrait');
@@ -454,40 +443,28 @@
     return `${m}:${s.toString().padStart(2,'0')}`;
   }
 
-  /* ---------- Digit color per segment ---------- */
+  /* ---------- Digit color per segment (now red/green/blue) ---------- */
   function updateDigitColor(){
     const rEnd = rSec;
     const gEnd = rSec + gSec;
     if (elapsed < rEnd){
-      clock.style.color = getComputedStyle(document.documentElement).getPropertyValue('--digits-yellow'); // red phase
+      clock.style.color = getComputedStyle(document.documentElement).getPropertyValue('--red');
     } else if (elapsed < gEnd){
-      clock.style.color = getComputedStyle(document.documentElement).getPropertyValue('--digits-pink');   // green phase
+      clock.style.color = getComputedStyle(document.documentElement).getPropertyValue('--green');
     } else {
-      clock.style.color = getComputedStyle(document.documentElement).getPropertyValue('--digits-white');  // blue phase
+      clock.style.color = getComputedStyle(document.documentElement).getPropertyValue('--blue');
     }
   }
 
-  /* ---------- Labels, markers, dots ---------- */
+  /* ---------- Markers (only inside bands) ---------- */
   function positionMarkers(){
     const rPct = totalSec ? (rSec/totalSec)*100 : 0;
     const gPct = totalSec ? ((rSec+gSec)/totalSec)*100 : 0;
     const endPct = 100;
 
-    lineR.style.left = `calc(${rPct}% - 1px)`;
-    lineG.style.left = `calc(${gPct}% - 1px)`;
-    lineEnd.style.left = `calc(${endPct}% - 1px)`;
-
-    dotR.style.left = `${rPct}%`;
-    dotG.style.left = `${gPct}%`;
-    dotEnd.style.left = `${endPct}%`;
-
-    labelR.textContent = fmtSS(rSec);
-    labelG.textContent = fmtSS(rSec+gSec);
-    labelEnd.textContent = fmtSS(totalSec);
-
-    labelR.style.left = `calc(${rPct}% - 8px)`;
-    labelG.style.left = `calc(${gPct}% - 8px)`;
-    labelEnd.style.left = `calc(${endPct}% + 8px)`;
+    lineR_top.style.left = lineR_bot.style.left = `calc(${rPct}% - 1px)`;
+    lineG_top.style.left = lineG_bot.style.left = `calc(${gPct}% - 1px)`;
+    lineEnd_top.style.left = lineEnd_bot.style.left = `calc(${endPct}% - 1px)`;
   }
 
   function refreshInfoBar(){
@@ -501,235 +478,4 @@
   }
 
   /* ---------- Mini status in settings header ---------- */
-  function setMiniStatus(){
-    miniClock.textContent = fmtSS(elapsed);
-    if (elapsed === 0 && !running){
-      miniStatus.textContent = 'Reset';
-      miniDot.className = 'dot reset';
-    } else if (running){
-      miniStatus.textContent = 'Running';
-      miniDot.className = 'dot run';
-    } else {
-      miniStatus.textContent = 'Paused';
-      miniDot.className = 'dot pause';
-    }
-  }
-
-  /* ---------- Segments fill ---------- */
-  function updateSegments(sec){
-    const pctTotal = totalSec ? (sec/totalSec)*100 : 0;
-    const rPct = totalSec ? (rSec/totalSec)*100 : 0;
-    const gPct = totalSec ? (gSec/totalSec)*100 : 0;
-    const bPct = 100 - rPct - gPct;
-
-    const rW = Math.min(pctTotal, rPct);
-    const gW = Math.min(Math.max(pctTotal - rPct, 0), gPct);
-    const bW = Math.min(Math.max(pctTotal - rPct - gPct, 0), bPct);
-
-    segR.style.width = rW + '%';
-    segG.style.width = gW + '%';
-    segB.style.width = bW + '%';
-  }
-
-  /* ---------- Timer control ---------- */
-  function start(){
-    if (running || totalSec === 0) return;
-    running = true;
-    startSlab.classList.add('start-hidden');
-    endBlink.style.display = 'none';
-    lastTick = performance.now();
-    setMiniStatus();
-    tick();
-  }
-  function pause(){
-    running = false;
-    if (rafId){ cancelAnimationFrame(rafId); rafId = null; }
-    startSlab.classList.remove('start-hidden');
-    setMiniStatus();
-  }
-  function resetElapsed(){
-    elapsed = 0;
-    scheduledFinalBlinks.clear();
-    blinking = false;
-    blinkMask.style.display = 'none';
-    endBlink.style.display = 'none';
-    clock.textContent = fmtSS(0);
-    updateDigitColor();
-    updateSegments(0);
-    setMiniStatus();
-    fitClockThrottled();
-  }
-
-  function tick(now){
-    if (!running) return;
-    if (!now) now = performance.now();
-    const dt = (now - lastTick) / 1000;
-    if (dt >= 0.25){
-      const add = Math.floor(dt);
-      elapsed += add;
-      lastTick += add*1000;
-      if (elapsed <= totalSec){
-        clock.textContent = fmtSS(elapsed);
-        updateDigitColor();
-        fitClockThrottled();
-        updateSegments(elapsed);
-        setMiniStatus();
-        handleFinalBlinkScheduling(); // 0.5 on / 0.5 off
-        if (elapsed === totalSec){
-          running = false;
-          endBlink.style.display = 'block';
-          setMiniStatus();
-          return;
-        }
-      }
-    }
-    rafId = requestAnimationFrame(tick);
-  }
-
-  /* ---------- Final (blue) segment blinks at minute boundaries ---------- */
-  function inFinalSegment(){
-    const finalStart = rSec + gSec; // blue starts after red+green
-    return elapsed >= finalStart && elapsed < totalSec;
-  }
-
-  async function handleFinalBlinkScheduling(){
-    if (!inFinalSegment()) return;
-    const finalStart = rSec + gSec;
-    const remaining = totalSec - elapsed; // seconds left in blue
-    const wholeMinLeft = Math.ceil(remaining / 60);
-    const atBoundary = ((elapsed - finalStart) % 60 === 0);
-    if (atBoundary && wholeMinLeft > 0 && !scheduledFinalBlinks.has(wholeMinLeft)){
-      // With defaults (4/10/6): triggers 14:00 (6), 15:00 (5), ..., 19:00 (1)
-      scheduledFinalBlinks.add(wholeMinLeft);
-      await queueBlinkSequence(wholeMinLeft);
-    }
-  }
-
-  const sleep = (ms)=>new Promise(r=>setTimeout(r,ms));
-  async function queueBlinkSequence(n){
-    while (blinking) await sleep(40);
-    blinking = true;
-    for (let i=0;i<n;i++){
-      blinkMask.style.display = 'none';  await sleep(500);
-      blinkMask.style.display = 'block'; await sleep(500);
-    }
-    blinkMask.style.display = 'none';
-    blinking = false;
-  }
-
-  /* ---------- Triple-tap to open settings + hide hint while open ---------- */
-  let tapCount = 0, tapTimer = null, hintTimer = null;
-  function showTapHint(){
-    const el = document.getElementById('tapHint');
-    el.classList.add('show');
-    if (hintTimer) clearTimeout(hintTimer);
-    hintTimer = setTimeout(()=> el.classList.remove('show'), 5000);
-  }
-  document.addEventListener('pointerdown', ()=>{
-    showTapHint();
-    tapCount++;
-    if (tapTimer) clearTimeout(tapTimer);
-    tapTimer = setTimeout(()=>{ tapCount = 0; }, 600);
-    if (tapCount >= 3){
-      tapCount = 0;
-      openSettings();
-    }
-  });
-
-  // Settings open/close
-  const openSettings = ()=>{
-    sheet.classList.add('open');
-    document.body.classList.add('has-sheet'); // moves watermark & hides tap hint
-    // hide any visible hint immediately
-    const el = document.getElementById('tapHint');
-    el.classList.remove('show');
-    setMiniStatus();
-  };
-  const closeSettings = ()=>{
-    sheet.classList.remove('open');
-    document.body.classList.remove('has-sheet');
-  };
-
-  // Settings buttons
-  pauseBtn.addEventListener('click', ()=>{ pause(); setMiniStatus(); });
-  returnBtn.addEventListener('click', ()=>{ saveTimes(); closeSettings(); });
-  resetBtn.addEventListener('click', ()=>{ pause(); resetElapsed(); });
-
-  // Start slab
-  startBtn.addEventListener('click', ()=>{ closeSettings(); start(); });
-
-  /* ---------- Save times / update UI ---------- */
-  function saveTimes(){
-    totalSec = rSec + gSec + bSec;
-    refreshInfoBar();
-    if (elapsed > totalSec) elapsed = totalSec;
-    scheduledFinalBlinks.clear();
-    updateDigitColor();
-    updateSegments(elapsed);
-    positionMarkers();
-    clock.textContent = fmtSS(elapsed);
-    setMiniStatus();
-    fitClockThrottled();
-  }
-
-  // Stepper logic (minutes ±1, seconds ±5)
-  function updateDisplayVals(){
-    rMinVal.textContent = Math.floor(rSec/60);
-    rSecOnly.textContent = String(Math.floor(rSec%60)).padStart(2,'0');
-    gMinVal.textContent = Math.floor(gSec/60);
-    gSecOnly.textContent = String(Math.floor(gSec%60)).padStart(2,'0');
-    bMinVal.textContent = Math.floor(bSec/60);
-    bSecOnly.textContent = String(Math.floor(bSec%60)).padStart(2,'0');
-  }
-  function adjust(seg, kind, delta){
-    const clamp = (v)=>Math.max(0, Math.min(6*60*60, v)); // up to 6h per segment
-    const step = (kind==='m') ? 60 : 5; // seconds step is 5
-    if (seg==='r'){
-      rSec = clamp(rSec + delta*step);
-    } else if (seg==='g'){
-      gSec = clamp(gSec + delta*step);
-    } else if (seg==='b'){
-      bSec = clamp(bSec + delta*step);
-    }
-    updateDisplayVals();
-    totalSec = rSec + gSec + bSec;
-    refreshInfoBar();
-    positionMarkers();
-    updateSegments(elapsed);
-    updateDigitColor();
-    setMiniStatus();
-  }
-  document.querySelectorAll('.btnStep').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      const seg = btn.getAttribute('data-seg');
-      const kind = btn.getAttribute('data-kind'); // 'm' or 's' (5s step)
-      const d = parseInt(btn.getAttribute('data-d'),10);
-      adjust(''+seg, ''+kind, d);
-    });
-  });
-
-  /* ---------- Init ---------- */
-  applyOrientationClass();
-  updateDisplayVals();
-  refreshInfoBar();
-  positionMarkers();
-  updateSegments(0);
-  clock.textContent = fmtSS(0);
-  updateDigitColor();
-  fitClock();
-  setMiniStatus();
-
-  window.addEventListener('resize', fitClockThrottled);
-  window.addEventListener('orientationchange', fitClockThrottled);
-
-  // Optional keyboard helpers
-  window.addEventListener('keydown', (e)=>{
-    if (e.key === ' '){ e.preventDefault(); running ? pause() : start(); }
-    else if (e.key.toLowerCase()==='s'){ sheet.classList.contains('open') ? closeSettings() : openSettings(); }
-    else if (e.key.toLowerCase()==='r'){ pause(); resetElapsed(); }
-  });
-
-})();
-</script>
-</body>
-</html>
+  function 
