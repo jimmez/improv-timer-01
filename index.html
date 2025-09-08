@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-<title>Improv Timer v14.1</title>
+<title>Improv Timer v15</title>
 <style>
   :root{
     --blue:#3aa8ff;
@@ -44,12 +44,12 @@
     display:block;line-height:0.9;font-weight:900;letter-spacing:0.01em;white-space:nowrap;
     text-shadow:0 0 22px rgba(0,0,0,.7);
     color:var(--blue); /* changes with segment; AFTER TOTAL -> --after (black) */
-    font-size:10vw; /* auto-fitted by JS to fill */
+    font-size:10vw; /* auto-fitted by JS */
   }
 
   .blink-mask{position:absolute;inset:0;background:#000;pointer-events:none;z-index:3;display:none;}
 
-  /* End blink behind the clock so time is visible on red frames */
+  /* End blink behind the clock so black digits show on red frames */
   .end-blink{
     position:absolute;inset:0;pointer-events:none;z-index:0;
     background:var(--bg);
@@ -82,9 +82,9 @@
   }
   .marker-label.blue{color:var(--blue)}
   .marker-label.green{color:var(--green)}
-  .marker-label.redwhite{color:#fff}  /* white-on-grey for end label */
+  .marker-label.red{color:var(--red)}  /* end label matches others now */
 
-  /* White total (only here, bottom-right) */
+  /* White total (only here, bottom-right under the bar) */
   .total-overlay{
     position:absolute;right:10px;bottom:6px;z-index:2;
     font-weight:900;font-variant-numeric:tabular-nums;
@@ -148,7 +148,7 @@
   .val{padding:6px 10px;border-radius:10px;min-width:72px;text-align:center;font-variant-numeric:tabular-nums;background:#0b0b0b;border:1px dashed rgba(255,255,255,.24);color:#fff;}
   .btnDelete{padding:6px 10px;border-radius:10px;font-weight:800;cursor:pointer;border:1px solid #522;background:#1a0000;color:#ffb3b3}
 
-  /* Watermark – main only for first 10s; hidden in settings */
+  /* Watermark – main only first 10s; hidden in settings */
   .stamp{position:fixed;right:10px;top:8px;z-index:10;font-size:12px;opacity:0.85;letter-spacing:0.4px;
     background:rgba(0,0,0,0.35);padding:2px 6px;border-radius:8px;border:1px solid rgba(255,255,255,0.12);pointer-events:none;}
   .stamp.hidden{display:none;}
@@ -156,7 +156,7 @@
 </head>
 <body>
   <div class="app" id="app">
-    <div class="stamp" id="stamp">08.09.2025 - v14.1 - Jimmy James</div>
+    <div class="stamp" id="stamp">08.09.2025 - v15 - Jimmy James</div>
 
     <div class="field" id="field">
       <!-- CLOCK -->
@@ -178,12 +178,12 @@
           <div class="marker end"   id="lineEnd"></div>
 
           <!-- labels on the lines -->
-          <div class="marker-label blue"     id="labelB">4:00</div>
-          <div class="marker-label green"    id="labelG">14:00</div>
-          <div class="marker-label redwhite" id="labelEnd">20:00</div>
+          <div class="marker-label blue"  id="labelB">4:00</div>
+          <div class="marker-label green" id="labelG">14:00</div>
+          <div class="marker-label red"   id="labelEnd">20:00</div> <!-- same style as others -->
         </div>
 
-        <!-- Total time (white) bottom-right -->
+        <!-- Total time (white) bottom-right (kept) -->
         <div class="total-overlay" id="totalOverlay">20:00</div>
       </div>
 
@@ -346,11 +346,12 @@
   let scheduledFinalBlinks = new Set();
   let blinking = false;
 
-  // Watermark: show only first 10s after load (auto hide), hidden while settings open
-  const hideStampTimer = setTimeout(()=> stamp.classList.add('hidden'), 10000);
+  // Watermark: auto-hide after 10s, hide while settings is open
+  setTimeout(()=> stamp.classList.add('hidden'), 10000);
   function updateStampVisibility(){
-    const hideInSettings = sheet.classList.contains('open');
-    stamp.classList.toggle('hidden', hideInSettings || stamp.classList.contains('hidden'));
+    const inSettings = sheet.classList.contains('open');
+    // If the 10s timer hid it already, keep hidden; otherwise hide only when settings opens.
+    if (inSettings) stamp.classList.add('hidden');
   }
 
   /* ---------- Orientation + Giant clock fitting ---------- */
@@ -373,7 +374,7 @@
       const fits = (px)=>{
         clock.style.fontSize = px + 'px';
         const W = clock.scrollWidth, H = clock.scrollHeight;
-        const rotW = H, rotH = W; // rotated 90°
+        const rotW = H, rotH = W;
         return (rotW <= maxRotW) && (rotH <= maxRotH);
       };
       while (fits(hi)) hi *= 1.18;
@@ -393,10 +394,9 @@
       clock.style.fontSize = lo + 'px';
     }
   }
-
   const fitClockThrottled = throttle(()=>{ applyOrientationClass(); fitClock(); }, 50);
 
-  /* ---------- Formatters ---------- */
+  /* ---------- Format ---------- */
   function fmtSS(t){
     const m = Math.floor(t/60);
     const s = Math.floor(t%60);
@@ -406,34 +406,22 @@
   /* ---------- Digit color per segment; AFTER total -> black ---------- */
   function getVar(name){ return getComputedStyle(document.documentElement).getPropertyValue(name); }
   function updateDigitColor(){
-    const bEnd = bSec;
-    const gEnd = bSec + gSec;
-    if (elapsed < bEnd){
-      clock.style.color = getVar('--blue');
-    } else if (elapsed < gEnd){
-      clock.style.color = getVar('--green');
-    } else if (elapsed < totalSec){
-      clock.style.color = getVar('--red');
-    } else {
-      clock.style.color = getVar('--after'); // black after total
-    }
+    const bEnd = bSec, gEnd = bSec + gSec;
+    if (elapsed < bEnd)          clock.style.color = getVar('--blue');
+    else if (elapsed < gEnd)     clock.style.color = getVar('--green');
+    else if (elapsed < totalSec) clock.style.color = getVar('--red');
+    else                         clock.style.color = getVar('--after'); // black after total
   }
 
   /* ---------- Markers & labels ---------- */
   function positionMarkers(){
     if (totalSec <= 0){
-      // hide fills and place end at 100%
-      lineB.style.left = '0%';
-      lineG.style.left = '0%';
-      lineEnd.style.left = 'calc(100% - 2.5px)';
-      labelB.style.left = '0%';
-      labelG.style.left = '0%';
-      labelEnd.style.left = 'calc(100% - 40px)';
+      lineB.style.left='0%'; lineG.style.left='0%'; lineEnd.style.left='calc(100% - 2.5px)';
       labelB.textContent='0:00'; labelG.textContent='0:00'; labelEnd.textContent='0:00';
+      labelB.style.left='0%'; labelG.style.left='0%'; labelEnd.style.left='calc(100% - 40px)';
       totalOverlay.textContent='0:00';
       return;
     }
-
     const bPct = (bSec/totalSec)*100;
     const gPct = ((bSec+gSec)/totalSec)*100;
 
@@ -441,14 +429,13 @@
     lineG.style.left   = `calc(${gPct}% - 1px)`;
     lineEnd.style.left = `calc(100% - 2.5px)`; // exact end
 
-    // Labels placed to the LEFT of each line
     labelB.textContent  = fmtSS(bSec);
     labelG.textContent  = fmtSS(bSec+gSec);
     labelEnd.textContent= fmtSS(totalSec);
 
     labelB.style.left   = `calc(${bPct}% - 24px)`;
     labelG.style.left   = `calc(${gPct}% - 32px)`;
-    labelEnd.style.left = `calc(100% - 40px)`;
+    labelEnd.style.left = `calc(100% - 40px)`; // left of red line
   }
 
   function refreshInfoBar(){
@@ -464,17 +451,14 @@
   /* ---------- Mini status in settings header ---------- */
   function setMiniStatus(){
     miniClock.textContent = fmtSS(elapsed);
-    if (elapsed === 0 && !running){ miniStatus.textContent = 'Reset'; miniDot.className = 'dot reset'; }
-    else if (running){ miniStatus.textContent = 'Running'; miniDot.className = 'dot run'; }
-    else { miniStatus.textContent = 'Paused'; miniDot.className = 'dot pause'; }
+    if (elapsed === 0 && !running){ miniStatus.textContent='Reset'; miniDot.className='dot reset'; }
+    else if (running){ miniStatus.textContent='Running'; miniDot.className='dot run'; }
+    else { miniStatus.textContent='Paused'; miniDot.className='dot pause'; }
   }
 
   /* ---------- Segments fill ---------- */
   function updateSegments(sec){
-    if (totalSec <= 0){
-      segB.style.width='0%'; segG.style.width='0%'; segR.style.width='0%';
-      return;
-    }
+    if (totalSec <= 0){ segB.style.width='0%'; segG.style.width='0%'; segR.style.width='0%'; return; }
     const eff = Math.min(sec, totalSec);
     const pctTotal = (eff/totalSec)*100;
 
@@ -482,13 +466,9 @@
     const gPct = (gSec/totalSec)*100;
     const rPct = 100 - bPct - gPct;
 
-    const bW = Math.min(pctTotal, bPct);
-    const gW = Math.min(Math.max(pctTotal - bPct, 0), gPct);
-    const rW = Math.min(Math.max(pctTotal - bPct - gPct, 0), rPct);
-
-    segB.style.width = bW + '%';
-    segG.style.width = gW + '%';
-    segR.style.width = rW + '%';
+    segB.style.width = Math.min(pctTotal, bPct) + '%';
+    segG.style.width = Math.min(Math.max(pctTotal - bPct, 0), gPct) + '%';
+    segR.style.width = Math.min(Math.max(pctTotal - bPct - gPct, 0), rPct) + '%';
   }
 
   /* ---------- Timer control ---------- */
@@ -540,7 +520,7 @@
       handleFinalBlinkScheduling();
 
       if (elapsed >= totalSec){
-        endBlink.style.display = 'block';  // shows behind the clock
+        endBlink.style.display = 'block';  // behind the clock
       }
 
       setMiniStatus();
@@ -554,7 +534,6 @@
     const finalStart = bSec + gSec; // red starts after blue+green
     return elapsed >= finalStart && elapsed < totalSec;
   }
-
   const sleep = (ms)=>new Promise(r=>setTimeout(r,ms));
   async function queueBlinkSequence(n){
     while (blinking) await sleep(40);
@@ -566,7 +545,6 @@
     blinkMask.style.display = 'none';
     blinking = false;
   }
-
   async function handleFinalBlinkScheduling(){
     if (!inFinalSegment()) return;
     const finalStart = bSec + gSec;
@@ -599,7 +577,7 @@
   };
   const closeSettings = ()=>{
     sheet.classList.remove('open');
-    updateStampVisibility(); // watermark stays hidden after 10s timer anyway
+    updateStampVisibility(); // watermark remains hidden after 10s anyway
   };
 
   // Settings buttons
@@ -634,25 +612,21 @@
     rSecOnly.textContent = String(Math.floor(rSec%60)).padStart(2,'0');
   }
   function adjust(seg, kind, delta){
-    const clamp = (v)=>Math.max(0, Math.min(6*60*60, v)); // up to 6h per segment
-    const step = (kind==='m') ? 60 : 5; // seconds step is 5
-    if (seg==='b'){ bSec = clamp(bSec + delta*step); }
-    else if (seg==='g'){ gSec = clamp(gSec + delta*step); }
-    else if (seg==='r'){ rSec = clamp(rSec + delta*step); }
+    const clamp = (v)=>Math.max(0, Math.min(6*60*60, v));
+    const step = (kind==='m') ? 60 : 5;
+    if (seg==='b') bSec = clamp(bSec + delta*step);
+    else if (seg==='g') gSec = clamp(gSec + delta*step);
+    else if (seg==='r') rSec = clamp(rSec + delta*step);
     updateDisplayVals();
     totalSec = bSec + gSec + rSec;
-    refreshInfoBar();
-    positionMarkers();
-    updateSegments(elapsed);
-    updateDigitColor();
-    setMiniStatus();
+    refreshInfoBar(); positionMarkers(); updateSegments(elapsed); updateDigitColor(); setMiniStatus();
   }
   document.querySelectorAll('.btnStep').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       const seg = btn.getAttribute('data-seg');
-      const kind = btn.getAttribute('data-kind'); // 'm' or 's' (5s step)
+      const kind = btn.getAttribute('data-kind'); // 'm' or 's'
       const d = parseInt(btn.getAttribute('data-d'),10);
-      adjust(''+seg, ''+kind, d);
+      adjust(seg, kind, d);
     });
   });
   document.querySelectorAll('.btnDelete').forEach(btn=>{
@@ -681,7 +655,7 @@
   window.addEventListener('resize', ()=>{ fitClockThrottled(); positionMarkers(); });
   window.addEventListener('orientationchange', ()=>{ fitClockThrottled(); positionMarkers(); });
 
-  // Optional keyboard helpers
+  // Keyboard helpers
   window.addEventListener('keydown', (e)=>{
     if (e.key === ' '){ e.preventDefault(); running ? pause() : start(); }
     else if (e.key.toLowerCase()==='s'){ sheet.classList.contains('open') ? closeSettings() : openSettings(); }
@@ -702,4 +676,3 @@
 </script>
 </body>
 </html>
-
