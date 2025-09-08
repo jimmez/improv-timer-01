@@ -14,7 +14,10 @@
     --fg:#ffffff;
     --danger:#ff2222;
 
-    --bandH: clamp(28px, 16vh, 160px); /* height of top/bottom progress bands */
+    /* Bands take the remaining space above/below the clock.
+       You can nudge their min/max here if needed. */
+    --band-min: 24px;   /* never smaller than this */
+    --band-max: 22vh;   /* never taller than this each */
   }
 
   html,body{
@@ -24,13 +27,19 @@
   }
 
   .app{position:relative;height:100%;width:100%;display:flex;flex-direction:column;}
-  .field{position:relative;flex:1 1 auto;overflow:hidden;background:var(--bg);}
+  .field{
+    position:relative;flex:1 1 auto;overflow:hidden;background:var(--bg);
+    display:grid;grid-template-rows:auto 1fr auto;grid-template-columns:100%;
+  }
 
   /* ====== PROGRESS BANDS (top & bottom) ====== */
-  .band{position:absolute;left:0;right:0;height:var(--bandH);z-index:1;overflow:hidden;}
-  .band.top{top:0;}
-  .band.bottom{bottom:0;}
-
+  .band{
+    position:relative; /* grid child */
+    min-height:var(--band-min);
+    max-height:var(--band-max);
+    height:clamp(var(--band-min), 16vh, var(--band-max));
+    overflow:hidden; z-index:1;
+  }
   .segments{position:absolute;inset:0;display:flex;pointer-events:none;}
   .seg{height:100%;width:0}
   .seg.red{background:var(--red)}
@@ -46,9 +55,10 @@
 
   /* ====== CLOCK STRIP (always black background) ====== */
   .clock-strip{
-    position:absolute;left:0;right:0;top:var(--bandH);bottom:var(--bandH);
+    position:relative; /* grid middle row (1fr) */
     background:#000; /* guarantees no bars behind numbers */
     z-index:2;display:flex;align-items:center;justify-content:center;
+    user-select:none;
   }
   .time-rot{transform-origin:center;}
   .portrait .time-rot{ transform: rotate(-90deg); }  /* portrait: bottom→top */
@@ -58,12 +68,13 @@
     display:block;line-height:0.9;font-weight:900;letter-spacing:0.02em;white-space:nowrap;
     text-shadow:0 0 22px rgba(0,0,0,.7);
     color:var(--red); /* will change with segment: red/green/blue */
-    font-size:10vw; /* JS resizes to max */
+    font-size:10vw; /* JS fits to max */
   }
 
-  /* Blink overlay (0.5s color / 0.5s black handled in JS) */
-  .blink-mask{position:absolute;left:0;right:0;top:var(--bandH);bottom:var(--bandH);
-    background:#000;pointer-events:none;z-index:3;display:none;}
+  /* Blink overlay (0.5s color / 0.5s black handled in JS), only over the clock strip */
+  .blink-mask{
+    position:absolute;inset:0;background:#000;pointer-events:none;z-index:3;display:none;
+  }
 
   /* End-of-timer black/red blink (full screen) */
   .end-blink{position:absolute;inset:0;pointer-events:none;z-index:4;background:var(--bg);
@@ -167,7 +178,7 @@
   .btn.primary{background:var(--blue);color:#002235}
   .btn.warn{background:#1a0000;color:#ffb3b3;border-color:#551111}
 
-  /* Watermark */
+  /* Watermark (only before start and first 10 seconds) */
   .stamp{
     position:fixed;right:10px;top:8px;z-index:12;font-size:12px;opacity:0.85;letter-spacing:0.4px;
     background:rgba(0,0,0,0.35);padding:2px 6px;border-radius:8px;border:1px solid rgba(255,255,255,0.12);
@@ -181,7 +192,7 @@
 
     <div class="field" id="field">
       <!-- TOP progress band -->
-      <div class="band top">
+      <div class="band" id="bandTop">
         <div class="segments">
           <div class="seg red"   id="segR_top"></div>
           <div class="seg green" id="segG_top"></div>
@@ -195,14 +206,16 @@
       </div>
 
       <!-- CLOCK strip (always black under numbers) -->
-      <div class="clock-strip">
+      <div class="clock-strip" id="clockStrip">
         <div class="time-rot">
           <span class="time" id="clock">0:00</span>
         </div>
+        <!-- Blink mask only overlays the clock area -->
+        <div class="blink-mask" id="blinkMask"></div>
       </div>
 
-      <!-- bottom progress band -->
-      <div class="band bottom">
+      <!-- BOTTOM progress band -->
+      <div class="band" id="bandBottom">
         <div class="segments">
           <div class="seg red"   id="segR_bot"></div>
           <div class="seg green" id="segG_bot"></div>
@@ -218,8 +231,7 @@
         <div class="total-overlay" id="totalOverlay">20:00</div>
       </div>
 
-      <!-- Blink & end blink -->
-      <div class="blink-mask" id="blinkMask"></div>
+      <!-- End blink covers everything when finished -->
       <div class="end-blink" id="endBlink"></div>
 
       <!-- Big left START slab -->
@@ -320,7 +332,7 @@
   const root = document.body;
 
   const clock = document.getElementById('clock');
-  const field = document.getElementById('field');
+  const clockStrip = document.getElementById('clockStrip');
 
   // top band segments
   const segR_top = document.getElementById('segR_top');
@@ -390,10 +402,9 @@
     root.classList.toggle('landscape', !portrait);
   }
 
-  /* ---------- Font fitting (giant digits) ---------- */
+  /* ---------- Fit the giant clock exactly like before ---------- */
   function fitClock(){
-    const strip = document.querySelector('.clock-strip');
-    const rect = strip.getBoundingClientRect();
+    const rect = clockStrip.getBoundingClientRect();
     if (rect.width <= 0 || rect.height <= 0) return;
 
     const isPortrait = root.classList.contains('portrait');
@@ -405,7 +416,7 @@
       const fits = (px)=>{
         clock.style.fontSize = px + 'px';
         const W = clock.scrollWidth, H = clock.scrollHeight;
-        const rotW = H, rotH = W;
+        const rotW = H, rotH = W; // 90° rotated
         return (rotW <= maxRotW) && (rotH <= maxRotH);
       };
       while (fits(hi) && hi < rect.height*3) hi *= 1.25;
@@ -425,16 +436,8 @@
       clock.style.fontSize = lo + 'px';
     }
   }
-  const fitClockThrottled = throttle(()=>{ applyOrientationClass(); fitClock(); }, 50);
 
-  function throttle(fn, ms){
-    let last = 0, t;
-    return function(){
-      const now = performance.now();
-      if (now - last >= ms){ last = now; fn(); }
-      else { clearTimeout(t); t = setTimeout(()=>{ last = performance.now(); fn(); }, ms - (now - last)); }
-    };
-  }
+  const fitClockThrottled = throttle(()=>{ applyOrientationClass(); fitClock(); }, 50);
 
   /* ---------- Formatters ---------- */
   function fmtSS(t){
@@ -473,9 +476,4 @@
     bShow.textContent = fmtSS(bSec);
     const totalTxt = fmtSS(totalSec);
     totalShow.textContent = totalTxt;
-    totalOverlay.textContent = totalTxt;
-    miniTotal.textContent = `/ ${totalTxt}`;
-  }
-
-  /* ---------- Mini status in settings header ---------- */
-  function 
+    totalOverla
