@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-<title>Improv Timer v7</title>
+<title>Improv Timer v8</title>
 <style>
   :root{
     --red:#ff3b30;
@@ -40,7 +40,7 @@
   .marker{position:absolute;top:0;bottom:0;width:2px;opacity:.98;}
   .marker.red{background:var(--red)}
   .marker.blue{background:var(--blue)}
-  .marker.end{background:var(--blue)} /* end line requested as blue */
+  .marker.end{background:var(--blue)} /* end line is blue */
 
   .marker-dot{
     position:absolute;bottom:0;width:10px;height:10px;border-radius:50%;
@@ -114,14 +114,28 @@
   /* Settings sheet (opened by triple-tap anywhere) */
   .sheet{position:fixed;inset:0;background:rgba(0,0,0,.66);display:none;align-items:center;justify-content:center;z-index:11;}
   .sheet.open{display:flex}
-  .card{width:min(860px,92vw);background:#0b0b0b;color:var(--fg);border:1px solid rgba(255,255,255,.12);border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.6);padding:18px;}
+  .card{width:min(900px,92vw);background:#0b0b0b;color:var(--fg);border:1px solid rgba(255,255,255,.12);border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.6);padding:18px;}
   .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;}
   .row + .row{margin-top:12px;}
   .group{flex:1 1 260px;min-width:260px;background:#121212;border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:12px;}
-  .group h4{margin:0 0 8px 0;display:flex;align-items:center;gap:8px;font-size:16px}
+
+  /* Themed groups (color all letters/symbols inside that section) */
+  .group.themed{position:relative;--theme:#fff;}
+  .group.themed h4{margin:0 0 8px 0;display:flex;align-items:center;gap:8px;font-size:16px;color:var(--theme)}
+  .group.themed .lbl{color:var(--theme);opacity:.9}
+  .group.themed .val{border-color:color-mix(in srgb, var(--theme) 40%, #ffffff 20%);color:var(--theme)}
+  .group.themed .btnStep{
+    border-color:color-mix(in srgb, var(--theme) 60%, #ffffff 10%);
+    color:#000; background:color-mix(in srgb, var(--theme) 50%, #101010 50%);
+    box-shadow:inset 0 0 0 1px rgba(0,0,0,.25);
+  }
+  .group.red   { --theme: var(--red); }
+  .group.blue  { --theme: var(--blue); }
+  .group.green { --theme: var(--green); }
+
   .counter{display:flex;align-items:center;gap:8px;margin-top:6px;}
   .lbl{opacity:.8;font-size:12px;min-width:70px}
-  .btnStep{border:1px solid rgba(255,255,255,.18);background:#101010;color:var(--fg);padding:6px 10px;border-radius:10px;font-weight:700;cursor:pointer;min-width:44px;text-align:center}
+  .btnStep{padding:6px 10px;border-radius:10px;font-weight:800;cursor:pointer;min-width:44px;text-align:center}
   .val{padding:6px 10px;border:1px dashed rgba(255,255,255,.24);border-radius:10px;min-width:72px;text-align:center;font-variant-numeric:tabular-nums;}
 
   .btn{border:1px solid rgba(255,255,255,.18);background:#101010;color:var(--fg);padding:10px 14px;border-radius:12px;font-weight:700;cursor:pointer;}
@@ -129,7 +143,16 @@
   .btn.warn{background:#1a0000;color:#ffb3b3;border-color:#551111}
   .hint{opacity:.7;font-size:12px}
 
-  /* Stamp + hint */
+  /* Settings header status */
+  .status{display:flex;align-items:center;gap:10px;margin:4px 2px 12px 2px;font-variant-numeric:tabular-nums;}
+  .status .dot{width:10px;height:10px;border-radius:50%;}
+  .status .dot.run{background:#28d17c}
+  .status .dot.pause{background:#ffb020}
+  .status .dot.reset{background:#aaaaaa}
+  .mini-time{font-weight:900;letter-spacing:0.02em}
+  .mini-total{opacity:.8}
+
+  /* Stamp + triple-tap hint */
   .stamp{position:fixed;right:10px;top:8px;z-index:12;font-size:12px;opacity:0.85;letter-spacing:0.4px;
     background:rgba(0,0,0,0.35);padding:2px 6px;border-radius:8px;border:1px solid rgba(255,255,255,0.12);}
   .tap-hint{
@@ -143,7 +166,7 @@
 </head>
 <body>
   <div class="app" id="app">
-    <div class="stamp">08.09.2025 - v7 - Jimmy James</div>
+    <div class="stamp">08.09.2025 - v8 - Jimmy James</div>
     <div class="tap-hint" id="tapHint">tap three times on screen for settings menu</div>
 
     <div class="field" id="field">
@@ -201,12 +224,19 @@
     <!-- Settings (opens via triple tap anywhere) -->
     <div class="sheet" id="sheet">
       <div class="card">
-        <h2 style="margin:6px 2px 12px 2px;">Improv Timer Settings</h2>
+        <div class="status">
+          <span class="dot pause" id="miniDot"></span>
+          <span id="miniStatus">Paused</span>
+          · <span class="mini-time" id="miniClock">0:00</span>
+          <span class="mini-total" id="miniTotal">/ 20:00</span>
+        </div>
+
+        <h2 style="margin:0 2px 10px 2px;">Improv Timer Settings</h2>
 
         <div class="row">
-          <!-- Red -->
-          <div class="group">
-            <h4><span class="dot red"></span> Red</h4>
+          <!-- 1. Red -->
+          <div class="group themed red">
+            <h4><span>1.</span> <span class="dot red"></span> <strong>Red</strong></h4>
             <div class="counter">
               <span class="lbl">Minutes</span>
               <button class="btnStep" data-seg="r" data-kind="m" data-d="-1">−</button>
@@ -214,16 +244,16 @@
               <button class="btnStep" data-seg="r" data-kind="m" data-d="1">+</button>
             </div>
             <div class="counter">
-              <span class="lbl">Seconds</span>
-              <button class="btnStep" data-seg="r" data-kind="s" data-d="-1">−</button>
-              <span class="val" id="rSecVal">00</span>
-              <button class="btnStep" data-seg="r" data-kind="s" data-d="1">+</button>
+              <span class="lbl">Seconds (×5)</span>
+              <button class="btnStep" data-seg="r" data-kind="s" data-d="-1">−5</button>
+              <span class="val" id="rSecOnly">00</span>
+              <button class="btnStep" data-seg="r" data-kind="s" data-d="1">+5</button>
             </div>
           </div>
 
-          <!-- Blue -->
-          <div class="group">
-            <h4><span class="dot blue"></span> Blue</h4>
+          <!-- 2. Blue -->
+          <div class="group themed blue">
+            <h4><span>2.</span> <span class="dot blue"></span> <strong>Blue</strong></h4>
             <div class="counter">
               <span class="lbl">Minutes</span>
               <button class="btnStep" data-seg="b" data-kind="m" data-d="-1">−</button>
@@ -231,16 +261,16 @@
               <button class="btnStep" data-seg="b" data-kind="m" data-d="1">+</button>
             </div>
             <div class="counter">
-              <span class="lbl">Seconds</span>
-              <button class="btnStep" data-seg="b" data-kind="s" data-d="-1">−</button>
-              <span class="val" id="bSecVal">00</span>
-              <button class="btnStep" data-seg="b" data-kind="s" data-d="1">+</button>
+              <span class="lbl">Seconds (×5)</span>
+              <button class="btnStep" data-seg="b" data-kind="s" data-d="-1">−5</button>
+              <span class="val" id="bSecOnly">00</span>
+              <button class="btnStep" data-seg="b" data-kind="s" data-d="1">+5</button>
             </div>
           </div>
 
-          <!-- Green -->
-          <div class="group">
-            <h4><span class="dot green"></span> Green</h4>
+          <!-- 3. Green -->
+          <div class="group themed green">
+            <h4><span>3.</span> <span class="dot green"></span> <strong>Green</strong></h4>
             <div class="counter">
               <span class="lbl">Minutes</span>
               <button class="btnStep" data-seg="g" data-kind="m" data-d="-1">−</button>
@@ -248,10 +278,10 @@
               <button class="btnStep" data-seg="g" data-kind="m" data-d="1">+</button>
             </div>
             <div class="counter">
-              <span class="lbl">Seconds</span>
-              <button class="btnStep" data-seg="g" data-kind="s" data-d="-1">−</button>
-              <span class="val" id="gSecVal">00</span>
-              <button class="btnStep" data-seg="g" data-kind="s" data-d="1">+</button>
+              <span class="lbl">Seconds (×5)</span>
+              <button class="btnStep" data-seg="g" data-kind="s" data-d="-1">−5</button>
+              <span class="val" id="gSecOnly">00</span>
+              <button class="btnStep" data-seg="g" data-kind="s" data-d="1">+5</button>
             </div>
           </div>
         </div>
@@ -261,7 +291,7 @@
           <button class="btn primary" id="returnBtn">Return</button>
           <button class="btn warn" id="resetBtn" title="Triple-click to reset">Reset ×3</button>
           <div class="spacer"></div>
-          <span class="hint">Tip: tap screen 3× to open this menu.</span>
+          <span class="hint">Tip: triple-tap anywhere to open this menu.</span>
         </div>
       </div>
     </div>
@@ -308,12 +338,19 @@
   const resetBtn = document.getElementById('resetBtn');
   const tapHint = document.getElementById('tapHint');
 
+  // settings mini status
+  const miniDot = document.getElementById('miniDot');
+  const miniStatus = document.getElementById('miniStatus');
+  const miniClock = document.getElementById('miniClock');
+  const miniTotal = document.getElementById('miniTotal');
+
+  // Settings values
   const rMinVal = document.getElementById('rMinVal');
-  const rSecVal = document.getElementById('rSecVal');
+  const rSecOnly = document.getElementById('rSecOnly');
   const bMinVal = document.getElementById('bMinVal');
-  const bSecVal = document.getElementById('bSecVal');
+  const bSecOnly = document.getElementById('bSecOnly');
   const gMinVal = document.getElementById('gMinVal');
-  const gSecVal = document.getElementById('gSecVal');
+  const gSecOnly = document.getElementById('gSecOnly');
 
   // State (seconds)
   let rSec = 3*60, bSec = 14*60, gSec = 3*60;
@@ -413,12 +450,10 @@
     dotB.style.left = `${bPct}%`;
     dotEnd.style.left = `${endPct}%`;
 
-    // Update texts (cumulative endpoints)
     labelR.textContent = fmtSS(rSec);
     labelB.textContent = fmtSS(rSec+bSec);
     labelEnd.textContent = fmtSS(totalSec);
 
-    // Label positions: left of R/B, right of end
     labelR.style.left = `calc(${rPct}% - 8px)`;
     labelB.style.left = `calc(${bPct}% - 8px)`;
     labelEnd.style.left = `calc(${endPct}% + 8px)`;
@@ -430,6 +465,22 @@
     gShow.textContent = fmtSS(gSec);
     totalShow.textContent = fmtSS(totalSec);
     totalOverlay.textContent = fmtSS(totalSec);
+    miniTotal.textContent = `/ ${fmtSS(totalSec)}`;
+  }
+
+  /* ---------- Mini status in settings ---------- */
+  function setMiniStatus(){
+    miniClock.textContent = fmtSS(elapsed);
+    if (elapsed === 0 && !running){
+      miniStatus.textContent = 'Reset';
+      miniDot.className = 'dot reset';
+    } else if (running){
+      miniStatus.textContent = 'Running';
+      miniDot.className = 'dot run';
+    } else {
+      miniStatus.textContent = 'Paused';
+      miniDot.className = 'dot pause';
+    }
   }
 
   /* ---------- Segments fill ---------- */
@@ -455,12 +506,14 @@
     startSlab.classList.add('start-hidden');
     endBlink.style.display = 'none';
     lastTick = performance.now();
+    setMiniStatus();
     tick();
   }
   function pause(){
     running = false;
     if (rafId){ cancelAnimationFrame(rafId); rafId = null; }
     startSlab.classList.remove('start-hidden');
+    setMiniStatus();
   }
   function resetElapsed(){
     elapsed = 0;
@@ -471,6 +524,7 @@
     clock.textContent = fmtSS(0);
     updateDigitColor();
     updateSegments(0);
+    setMiniStatus();
     fitClockThrottled();
   }
 
@@ -487,10 +541,12 @@
         updateDigitColor();
         fitClockThrottled();
         updateSegments(elapsed);
+        setMiniStatus();
         handleFinalBlinkScheduling(); // 0.5 on / 0.5 off
         if (elapsed === totalSec){
           running = false;
           endBlink.style.display = 'block';
+          setMiniStatus();
           return;
         }
       }
@@ -498,7 +554,7 @@
     rafId = requestAnimationFrame(tick);
   }
 
-  /* ---------- Final (green) segment blinks: at each minute boundary ---------- */
+  /* ---------- Final (green) segment blinks: at 17:00, 18:00, 19:00... ---------- */
   function inFinalSegment(){
     const finalStart = rSec + bSec;
     return elapsed >= finalStart && elapsed < totalSec;
@@ -539,7 +595,6 @@
   }
   document.addEventListener('pointerdown', ()=>{
     showTapHint();
-    // triple-tap detector (compact 600ms window)
     tapCount++;
     if (tapTimer) clearTimeout(tapTimer);
     tapTimer = setTimeout(()=>{ tapCount = 0; }, 600);
@@ -552,13 +607,14 @@
   // Settings open/close
   const openSettings = ()=>{
     sheet.classList.add('open');
+    setMiniStatus();
   };
   const closeSettings = ()=>{
     sheet.classList.remove('open');
   };
 
   // Settings buttons
-  pauseBtn.addEventListener('click', ()=>{ pause(); });
+  pauseBtn.addEventListener('click', ()=>{ pause(); setMiniStatus(); });
   returnBtn.addEventListener('click', ()=>{ saveTimes(); closeSettings(); });
 
   // Triple-click reset inside settings
@@ -586,26 +642,28 @@
     updateSegments(elapsed);
     positionMarkers();
     clock.textContent = fmtSS(elapsed);
+    setMiniStatus();
     fitClockThrottled();
   }
 
-  // Stepper logic (minutes/seconds)
+  // Stepper logic (minutes ±1, seconds ±5)
   function updateDisplayVals(){
     rMinVal.textContent = Math.floor(rSec/60);
-    rSecVal.textContent = String(Math.floor(rSec%60)).padStart(2,'0');
+    rSecOnly.textContent = String(Math.floor(rSec%60)).padStart(2,'0');
     bMinVal.textContent = Math.floor(bSec/60);
-    bSecVal.textContent = String(Math.floor(bSec%60)).padStart(2,'0');
+    bSecOnly.textContent = String(Math.floor(bSec%60)).padStart(2,'0');
     gMinVal.textContent = Math.floor(gSec/60);
-    gSecVal.textContent = String(Math.floor(gSec%60)).padStart(2,'0');
+    gSecOnly.textContent = String(Math.floor(gSec%60)).padStart(2,'0');
   }
   function adjust(seg, kind, delta){
     const clamp = (v)=>Math.max(0, Math.min(6*60*60, v)); // up to 6h per segment
+    const step = (kind==='m') ? 60 : 5; // seconds step is 5
     if (seg==='r'){
-      if (kind==='m') rSec = clamp(rSec + delta*60); else rSec = clamp(rSec + delta);
+      rSec = clamp(rSec + delta*step);
     } else if (seg==='b'){
-      if (kind==='m') bSec = clamp(bSec + delta*60); else bSec = clamp(bSec + delta);
+      bSec = clamp(bSec + delta*step);
     } else if (seg==='g'){
-      if (kind==='m') gSec = clamp(gSec + delta*60); else gSec = clamp(gSec + delta);
+      gSec = clamp(gSec + delta*step);
     }
     updateDisplayVals();
     totalSec = rSec + bSec + gSec;
@@ -613,11 +671,12 @@
     positionMarkers();
     updateSegments(elapsed);
     updateDigitColor();
+    setMiniStatus();
   }
   document.querySelectorAll('.btnStep').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       const seg = btn.getAttribute('data-seg');
-      const kind = btn.getAttribute('data-kind');
+      const kind = btn.getAttribute('data-kind'); // 'm' or 's' (5s step)
       const d = parseInt(btn.getAttribute('data-d'),10);
       adjust(''+seg, ''+kind, d);
     });
@@ -632,6 +691,7 @@
   clock.textContent = fmtSS(0);
   updateDigitColor();
   fitClock();
+  setMiniStatus();
   showTapHint(); // show on load once
 
   window.addEventListener('resize', fitClockThrottled);
@@ -643,6 +703,7 @@
     else if (e.key.toLowerCase()==='s'){ sheet.classList.contains('open') ? closeSettings() : openSettings(); }
     else if (e.key.toLowerCase()==='r'){ pause(); resetElapsed(); }
   });
+
 })();
 </script>
 </body>
