@@ -3,12 +3,13 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-<title>Improv Timer v8 (RGB)</title>
+<title>Improv Timer v10 (RGB)</title>
 <style>
   :root{
-    --red:#ff0000;       /* pure red */
-    --green:#25d366;     /* green segment/line */
-    --blue:#3aa8ff;      /* blue segment/line */
+    --red:#ff0000;          /* pure red for main timer & markers */
+    --red-settings:#ff5a2f; /* slightly orange red for SETTINGS UI ONLY */
+    --green:#25d366;
+    --blue:#3aa8ff;
 
     --bg:#000000;
     --fg:#ffffff;
@@ -156,7 +157,7 @@
     color:#000; background:color-mix(in srgb, var(--theme) 50%, #101010 50%);
     box-shadow:inset 0 0 0 1px rgba(0,0,0,.25);
   }
-  .group.red   { --theme: var(--red); }
+  .group.red   { --theme: var(--red-settings); } /* slightly orange ONLY in settings */
   .group.green { --theme: var(--green); }
   .group.blue  { --theme: var(--blue); }
 
@@ -176,12 +177,11 @@
   .btn{border:1px solid rgba(255,255,255,.18);background:#101010;color:var(--fg);padding:12px 16px;border-radius:12px;font-weight:800;cursor:pointer;}
   .btn.primary{background:var(--blue);color:#002235}
   .btn.warn{background:#1a0000;color:#ffb3b3;border-color:#551111}
-  .hint{opacity:.7;font-size:12px;margin-left:auto}
 
   /* Stamp + triple-tap hint */
   .stamp{position:fixed;right:10px;top:8px;z-index:12;font-size:12px;opacity:0.85;letter-spacing:0.4px;
     background:rgba(0,0,0,0.35);padding:2px 6px;border-radius:8px;border:1px solid rgba(255,255,255,0.12);}
-  body.has-sheet .stamp{top:auto;bottom:8px;right:10px;opacity:.6;} /* move stamp away from header when settings open */
+  body.has-sheet .stamp{top:auto;bottom:8px;right:10px;opacity:.6;} /* move stamp when settings open */
 
   .tap-hint{
     position:fixed;left:50%;bottom:80px;transform:translateX(-50%);
@@ -190,11 +190,12 @@
     transition:opacity .2s ease;
   }
   .tap-hint.show{opacity:1;}
+  body.has-sheet .tap-hint{display:none !important;} /* hide hint while settings are open */
 </style>
 </head>
 <body>
   <div class="app" id="app">
-    <div class="stamp">08.09.2025 - v8 - Jimmy James</div>
+    <div class="stamp">08.09.2025 - v10 - Jimmy James</div>
     <div class="tap-hint" id="tapHint">tap three times on screen for settings menu</div>
 
     <div class="field" id="field">
@@ -215,8 +216,8 @@
         <div class="marker-dot green" id="dotG"></div>
         <div class="marker-dot blue"  id="dotEnd"></div>
 
-        <div class="marker-label left"  id="labelR">3:00</div>
-        <div class="marker-label left"  id="labelG">17:00</div>
+        <div class="marker-label left"  id="labelR">4:00</div>
+        <div class="marker-label left"  id="labelG">14:00</div>
         <div class="marker-label right" id="labelEnd">20:00</div>
       </div>
 
@@ -242,9 +243,9 @@
 
     <!-- Bottom status bar -->
     <div class="bar">
-      <span class="pill"><span class="dot red"></span><span id="rShow">3:00</span></span>
-      <span class="pill"><span class="dot green"></span><span id="gShow">14:00</span></span>
-      <span class="pill"><span class="dot blue"></span><span id="bShow">3:00</span></span>
+      <span class="pill"><span class="dot red"></span><span id="rShow">4:00</span></span>
+      <span class="pill"><span class="dot green"></span><span id="gShow">10:00</span></span>
+      <span class="pill"><span class="dot blue"></span><span id="bShow">6:00</span></span>
       <div class="spacer"></div>
       <span class="pill" title="Total time"><strong id="totalShow">20:00</strong></span>
     </div>
@@ -265,13 +266,13 @@
 
         <div class="card-body">
           <div class="row">
-            <!-- 1. Red -->
+            <!-- 1. Red (slightly orange theme in settings only) -->
             <div class="group themed red">
-              <h4><span>1.</span> <span class="dot red"></span> <strong>Red</strong></h4>
+              <h4><span>1.</span> <span class="dot red" style="background:var(--red-settings)"></span> <strong>Red</strong></h4>
               <div class="counter">
                 <span class="lbl">Minutes</span>
                 <button class="btnStep" data-seg="r" data-kind="m" data-d="-1">−</button>
-                <span class="val" id="rMinVal">3</span>
+                <span class="val" id="rMinVal">4</span>
                 <button class="btnStep" data-seg="r" data-kind="m" data-d="1">+</button>
               </div>
               <div class="counter">
@@ -288,7 +289,7 @@
               <div class="counter">
                 <span class="lbl">Minutes</span>
                 <button class="btnStep" data-seg="g" data-kind="m" data-d="-1">−</button>
-                <span class="val" id="gMinVal">14</span>
+                <span class="val" id="gMinVal">10</span>
                 <button class="btnStep" data-seg="g" data-kind="m" data-d="1">+</button>
               </div>
               <div class="counter">
@@ -305,7 +306,7 @@
               <div class="counter">
                 <span class="lbl">Minutes</span>
                 <button class="btnStep" data-seg="b" data-kind="m" data-d="-1">−</button>
-                <span class="val" id="bMinVal">3</span>
+                <span class="val" id="bMinVal">6</span>
                 <button class="btnStep" data-seg="b" data-kind="m" data-d="1">+</button>
               </div>
               <div class="counter">
@@ -322,7 +323,6 @@
           <button class="btn" id="pauseBtn">Pause</button>
           <button class="btn primary" id="returnBtn">Return</button>
           <button class="btn warn" id="resetBtn" title="Reset timer to 0">Reset</button>
-          <span class="hint">Triple-tap anywhere to open this menu.</span>
         </div>
       </div>
     </div>
@@ -383,8 +383,8 @@
   const bMinVal = document.getElementById('bMinVal');
   const bSecOnly = document.getElementById('bSecOnly');
 
-  // State (seconds) in RGB order
-  let rSec = 3*60, gSec = 14*60, bSec = 3*60;
+  // State (seconds) in RGB order — defaults: 4 / 10 / 6
+  let rSec = 4*60, gSec = 10*60, bSec = 6*60;
   let totalSec = rSec + gSec + bSec;
 
   let elapsed = 0; // seconds
@@ -599,7 +599,7 @@
     const wholeMinLeft = Math.ceil(remaining / 60);
     const atBoundary = ((elapsed - finalStart) % 60 === 0);
     if (atBoundary && wholeMinLeft > 0 && !scheduledFinalBlinks.has(wholeMinLeft)){
-      // Default 3-14-3 → triggers at 17:00 (3), 18:00 (2), 19:00 (1)
+      // With defaults (4/10/6): triggers 14:00 (6), 15:00 (5), ..., 19:00 (1)
       scheduledFinalBlinks.add(wholeMinLeft);
       await queueBlinkSequence(wholeMinLeft);
     }
@@ -617,7 +617,7 @@
     blinking = false;
   }
 
-  /* ---------- Triple-tap to open settings + move stamp + 5s hint ---------- */
+  /* ---------- Triple-tap to open settings + hide hint while open ---------- */
   let tapCount = 0, tapTimer = null, hintTimer = null;
   function showTapHint(){
     const el = document.getElementById('tapHint');
@@ -639,7 +639,10 @@
   // Settings open/close
   const openSettings = ()=>{
     sheet.classList.add('open');
-    document.body.classList.add('has-sheet'); // move watermark away so mini clock is visible
+    document.body.classList.add('has-sheet'); // moves watermark & hides tap hint
+    // hide any visible hint immediately
+    const el = document.getElementById('tapHint');
+    el.classList.remove('show');
     setMiniStatus();
   };
   const closeSettings = ()=>{
@@ -715,7 +718,6 @@
   updateDigitColor();
   fitClock();
   setMiniStatus();
-  showTapHint();
 
   window.addEventListener('resize', fitClockThrottled);
   window.addEventListener('orientationchange', fitClockThrottled);
