@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-<title>Improv Timer v11.4</title>
+<title>Improv Timer v11.6</title>
 <style>
   :root{
     --blue:#3aa8ff;
@@ -20,22 +20,22 @@
   }
 
   html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font-family:sans-serif;overflow:hidden;}
-
   .app{position:relative;height:100%;width:100%;display:flex;flex-direction:column;}
-  .field{position:relative;flex:1 1 auto;overflow:hidden;background:var(--bg);
-    display:grid;grid-template-rows:1fr auto;grid-template-columns:100%;}
+  .field{position:relative;flex:1 1 auto;display:grid;grid-template-rows:1fr auto;grid-template-columns:100%;}
 
-  .clock-strip{position:relative;background:#000;z-index:2;display:flex;align-items:center;justify-content:center;}
+  /* CLOCK */
+  .clock-strip{position:relative;background:#000;display:flex;align-items:center;justify-content:center;z-index:2;}
   .time-rot{transform-origin:center;}
   .portrait .time-rot{ transform: rotate(-90deg); }
   .landscape .time-rot{ transform: none; }
-  .time{display:block;line-height:0.9;font-weight:900;letter-spacing:0.005em;
-    white-space:nowrap;text-shadow:0 0 22px rgba(0,0,0,.7);font-size:10vw;}
+  .time{display:block;line-height:0.9;font-weight:900;white-space:nowrap;text-shadow:0 0 22px rgba(0,0,0,.7);font-size:12vw;}
 
-  .end-blink{position:absolute;inset:0;pointer-events:none;z-index:4;background:var(--bg);
+  .blink-mask{position:absolute;inset:0;background:#000;z-index:3;display:none;}
+  .end-blink{position:absolute;inset:0;z-index:4;background:var(--bg);
     animation:endBlink .5s steps(2,jump-none) infinite;display:none;}
   @keyframes endBlink{0%{background:var(--bg)}50%{background:var(--danger)}100%{background:var(--danger)}}
 
+  /* Bottom progress band */
   .band{position:relative;min-height:var(--band-min);max-height:var(--band-max);
     height:clamp(var(--band-min),18vh,var(--band-max));overflow:hidden;z-index:1;}
   .segments{position:absolute;inset:0;display:flex;}
@@ -48,23 +48,33 @@
   .marker{position:absolute;top:0;bottom:0;width:2px;}
   .marker.blue{background:var(--blue);}
   .marker.green{background:var(--green);}
-  .marker.end{background:var(--red);width:4px;} /* thicker red end line */
+  .marker.end{background:var(--red);width:4px;}
 
-  .marker-label{
-    position:absolute;bottom:6px;font-size:12px;font-weight:800;
-    font-variant-numeric:tabular-nums;padding:2px 6px;border-radius:6px;
-    background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.12);white-space:nowrap;
-  }
+  .marker-label{position:absolute;bottom:6px;font-size:12px;font-weight:800;font-variant-numeric:tabular-nums;
+    padding:2px 6px;border-radius:6px;background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.12);}
   .marker-label.blue{color:var(--blue);}
   .marker-label.green{color:var(--green);}
   .marker-label.red{color:var(--red);}
 
-  .total-overlay{
-    position:absolute;right:10px;bottom:6px;z-index:2;
-    font-weight:900;font-variant-numeric:tabular-nums;
-    font-size:clamp(14px,3.8vw,28px);color:#fff;
-    background:rgba(0,0,0,.35);padding:2px 8px;border-radius:8px;border:1px solid rgba(255,255,255,.12);
-  }
+  .total-overlay{position:absolute;right:10px;bottom:6px;z-index:2;font-weight:900;font-variant-numeric:tabular-nums;
+    font-size:clamp(14px,3.8vw,28px);color:#fff;background:rgba(0,0,0,.35);
+    padding:2px 8px;border-radius:8px;border:1px solid rgba(255,255,255,.12);}
+
+  /* Start slab */
+  .start-slab{position:absolute;left:0;top:0;bottom:0;width:20%;display:flex;align-items:center;justify-content:center;
+    background:rgba(58,168,255,0.07);border-right:1px solid rgba(255,255,255,.12);cursor:pointer;z-index:6;}
+  .start-slab button{width:88%;max-width:340px;padding:18px;border-radius:16px;
+    border:2px solid rgba(255,255,255,.28);background:var(--blue);color:#002235;font-weight:900;font-size:24px;cursor:pointer;}
+  .start-hidden{display:none;}
+
+  /* Settings sheet */
+  .sheet{position:fixed;inset:0;background:rgba(0,0,0,.66);display:none;align-items:center;justify-content:center;z-index:11;}
+  .sheet.open{display:flex;}
+  .card{width:min(600px,92vw);background:#0b0b0b;color:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.6);
+    padding:20px;display:flex;flex-direction:column;gap:12px;}
+  .btn{padding:10px 16px;border-radius:10px;font-weight:700;cursor:pointer;border:1px solid #444;}
+  .btn.primary{background:var(--blue);color:#002235;}
+  .btn.warn{background:#200;color:#fbb;border-color:#500;}
 </style>
 </head>
 <body>
@@ -73,9 +83,10 @@
       <!-- CLOCK -->
       <div class="clock-strip">
         <div class="time-rot"><span class="time" id="clock">0:00</span></div>
+        <div class="blink-mask" id="blinkMask"></div>
       </div>
 
-      <!-- BOTTOM BAR -->
+      <!-- BAR -->
       <div class="band">
         <div class="segments">
           <div class="seg blue" id="segB"></div>
@@ -83,64 +94,115 @@
           <div class="seg red" id="segR"></div>
         </div>
         <div class="markers">
-          <div class="marker blue"  id="lineB"></div>
+          <div class="marker blue" id="lineB"></div>
           <div class="marker green" id="lineG"></div>
-          <div class="marker end"   id="lineEnd"></div>
-
+          <div class="marker end" id="lineEnd"></div>
           <div class="marker-label blue"  id="labelB">4:00</div>
           <div class="marker-label green" id="labelG">14:00</div>
-          <!-- Red label placed left of red line -->
           <div class="marker-label red"   id="labelEnd">20:00</div>
         </div>
-        <!-- White overlay total -->
         <div class="total-overlay" id="totalOverlay">20:00</div>
       </div>
 
       <div class="end-blink" id="endBlink"></div>
+      <div class="start-slab" id="startSlab"><button id="startBtn">START</button></div>
+    </div>
+
+    <!-- Settings -->
+    <div class="sheet" id="sheet">
+      <div class="card">
+        <h2>Settings</h2>
+        <div style="display:flex;gap:10px;">
+          <button class="btn" id="pauseBtn">Pause</button>
+          <button class="btn primary" id="returnBtn">Return</button>
+          <button class="btn warn" id="resetBtn">Reset</button>
+        </div>
+      </div>
     </div>
   </div>
 
 <script>
 (function(){
   const clock=document.getElementById('clock');
-  const segB=document.getElementById('segB');
-  const segG=document.getElementById('segG');
-  const segR=document.getElementById('segR');
-  const lineB=document.getElementById('lineB');
-  const lineG=document.getElementById('lineG');
-  const lineEnd=document.getElementById('lineEnd');
-  const labelB=document.getElementById('labelB');
-  const labelG=document.getElementById('labelG');
-  const labelEnd=document.getElementById('labelEnd');
+  const segB=document.getElementById('segB'), segG=document.getElementById('segG'), segR=document.getElementById('segR');
+  const lineB=document.getElementById('lineB'), lineG=document.getElementById('lineG'), lineEnd=document.getElementById('lineEnd');
+  const labelB=document.getElementById('labelB'), labelG=document.getElementById('labelG'), labelEnd=document.getElementById('labelEnd');
   const totalOverlay=document.getElementById('totalOverlay');
+  const startSlab=document.getElementById('startSlab'), startBtn=document.getElementById('startBtn');
+  const sheet=document.getElementById('sheet');
+  const pauseBtn=document.getElementById('pauseBtn'), returnBtn=document.getElementById('returnBtn'), resetBtn=document.getElementById('resetBtn');
+  const endBlink=document.getElementById('endBlink');
+  const blinkMask=document.getElementById('blinkMask');
 
-  let bSec=4*60,gSec=10*60,rSec=6*60;
-  let totalSec=bSec+gSec+rSec;
+  let bSec=4*60,gSec=10*60,rSec=6*60;let totalSec=bSec+gSec+rSec;
+  let elapsed=0,running=false,rafId=null,lastTick=null;
+  let scheduledFinalBlinks=new Set(),blinking=false;
 
   function fmtSS(t){const m=Math.floor(t/60),s=Math.floor(t%60);return `${m}:${s.toString().padStart(2,'0')}`;}
-
-  function positionMarkers(){
-    const bPct=(bSec/totalSec)*100;
-    const gPct=((bSec+gSec)/totalSec)*100;
-    lineB.style.left=`calc(${bPct}% - 1px)`;
-    lineG.style.left=`calc(${gPct}% - 1px)`;
-    lineEnd.style.left=`calc(100% - 2px)`; // end of bar
-    labelB.style.left=`calc(${bPct}% - 24px)`; // left of blue line
-    labelG.style.left=`calc(${gPct}% - 32px)`; // left of green line
-    labelEnd.style.left=`calc(100% - 40px)`;   // left of red line
-  }
-
-  function init(){
-    labelB.textContent=fmtSS(bSec);
-    labelG.textContent=fmtSS(bSec+gSec);
-    labelEnd.textContent=fmtSS(totalSec);
+  function updateMarkers(){
+    const bPct=(bSec/totalSec)*100,gPct=((bSec+gSec)/totalSec)*100;
+    lineB.style.left=`calc(${bPct}% - 1px)`;lineG.style.left=`calc(${gPct}% - 1px)`;lineEnd.style.left=`calc(100% - 2px)`;
+    labelB.textContent=fmtSS(bSec);labelB.style.left=`calc(${bPct}% - 24px)`;
+    labelG.textContent=fmtSS(bSec+gSec);labelG.style.left=`calc(${gPct}% - 32px)`;
+    labelEnd.textContent=fmtSS(totalSec);labelEnd.style.left=`calc(100% - 40px)`;
     totalOverlay.textContent=fmtSS(totalSec);
-    positionMarkers();
-    clock.textContent="0:00";
   }
+  function updateSegs(sec){
+    const eff=Math.min(sec,totalSec),pct=(eff/totalSec)*100;
+    const bPct=(bSec/totalSec)*100,gPct=(gSec/totalSec)*100;
+    segB.style.width=Math.min(pct,bPct)+'%';
+    segG.style.width=Math.min(Math.max(pct-bPct,0),gPct)+'%';
+    segR.style.width=Math.min(Math.max(pct-bPct-gPct,0),100-bPct-gPct)+'%';
+  }
+  function updateColor(){
+    if(elapsed< bSec) clock.style.color="var(--blue)";
+    else if(elapsed< bSec+gSec) clock.style.color="var(--green)";
+    else if(elapsed< totalSec) clock.style.color="var(--red)";
+    else clock.style.color="var(--after)";
+  }
+  function start(){if(running)return;running=true;startSlab.classList.add('start-hidden');lastTick=performance.now();tick();}
+  function pause(){running=false;if(rafId)cancelAnimationFrame(rafId);startSlab.classList.remove('start-hidden');}
+  function reset(){pause();elapsed=0;scheduledFinalBlinks.clear();blinking=false;blinkMask.style.display='none';
+    clock.textContent="0:00";updateSegs(0);updateColor();endBlink.style.display='none';}
+  function tick(now){if(!running)return;if(!now)now=performance.now();
+    const dt=(now-lastTick)/1000;if(dt>=1){elapsed+=Math.floor(dt);lastTick+=Math.floor(dt)*1000;
+      clock.textContent=fmtSS(elapsed);updateSegs(elapsed);updateColor();
+      handleFinalBlinkScheduling();
+      if(elapsed>=totalSec){endBlink.style.display='block';}}
+    rafId=requestAnimationFrame(tick);}
+  async function queueBlinkSequence(n){
+    while(blinking) await new Promise(r=>setTimeout(r,50));
+    blinking=true;
+    for(let i=0;i<n;i++){
+      blinkMask.style.display='block';await new Promise(r=>setTimeout(r,500));
+      blinkMask.style.display='none';await new Promise(r=>setTimeout(r,500));
+    }
+    blinkMask.style.display='none';blinking=false;
+  }
+  function handleFinalBlinkScheduling(){
+    const finalStart=bSec+gSec;
+    if(elapsed>=finalStart && elapsed<totalSec){
+      const minLeft=Math.ceil((totalSec-elapsed)/60);
+      if([3,2,1].includes(minLeft) && !scheduledFinalBlinks.has(minLeft) && (elapsed-finalStart)%60===0){
+        scheduledFinalBlinks.add(minLeft);
+        queueBlinkSequence(minLeft);
+      }
+    }
+  }
+  startBtn.addEventListener('click',()=>{sheet.classList.remove('open');start();});
+  pauseBtn.addEventListener('click',pause);
+  returnBtn.addEventListener('click',()=>sheet.classList.remove('open'));
+  resetBtn.addEventListener('click',reset);
 
-  window.addEventListener('resize', positionMarkers);
-  init();
+  // triple tap
+  let taps=0,timer=null;
+  document.addEventListener('pointerdown',()=>{
+    taps++;if(timer)clearTimeout(timer);
+    timer=setTimeout(()=>{taps=0;},600);
+    if(taps>=3){taps=0;sheet.classList.add('open');}
+  });
+
+  updateMarkers();updateSegs(0);updateColor();
 })();
 </script>
 </body>
