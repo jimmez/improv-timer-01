@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-<title>Improv Timer v17</title>
+<title>Improv Timer v18</title>
 <style>
   :root{
     --blue:#3aa8ff;
@@ -31,9 +31,9 @@
     display:grid;grid-template-rows:1fr auto;grid-template-columns:100%;
   }
 
-  /* CLOCK */
+  /* ===== CLOCK (always black under digits) ===== */
   .clock-strip{
-    position:relative;background:#000;z-index:2;
+    position:relative;background:#000;z-index:2; /* ABOVE end-blink so digits remain visible */
     display:flex;align-items:center;justify-content:center;user-select:none;
   }
   .time-rot{transform-origin:center;}
@@ -43,14 +43,26 @@
   .time{
     display:block;line-height:0.9;font-weight:900;letter-spacing:0.01em;white-space:nowrap;
     text-shadow:0 0 22px rgba(0,0,0,.7);
-    color:var(--blue); /* changes with segment; AFTER TOTAL -> --after (black) */
-    font-size:10vw;
+    color:var(--blue); /* Blue→Green→Red, then black after total */
+    font-size:10vw; /* auto-fitted by JS */
   }
+
+  /* OVERTIME badge (shows after end) */
+  .overtime-badge{
+    position:absolute;top:8px;left:10px;z-index:4;
+    padding:3px 8px;border-radius:999px;
+    font-weight:900;font-size:12px;letter-spacing:0.6px;
+    color:#fff;background:rgba(255,0,0,0.18);
+    border:1px solid rgba(255,0,0,0.45);
+    text-shadow:0 0 8px rgba(0,0,0,.5);
+    display:none;
+  }
+  .overtime .overtime-badge{ display:inline-flex; }
 
   /* Minute blink mask in final segment */
   .blink-mask{position:absolute;inset:0;background:#000;pointer-events:none;z-index:3;display:none;}
 
-  /* End blink (behind the clock so black digits show on red frames) */
+  /* End blink behind the clock so black digits show on red frames */
   .end-blink{
     position:absolute;inset:0;pointer-events:none;z-index:0;
     background:var(--bg);
@@ -58,9 +70,11 @@
   }
   @keyframes endBlink{0%{background:var(--bg)}50%{background:var(--danger)}100%{background:var(--danger)}}
 
-  /* BOTTOM PROGRESS BAND */
-  .band{position:relative;min-height:var(--band-min);max-height:var(--band-max);
-    height:clamp(var(--band-min),18vh,var(--band-max));overflow:hidden;z-index:1;}
+  /* ===== BOTTOM PROGRESS BAND ONLY ===== */
+  .band{
+    position:relative;min-height:var(--band-min);max-height:var(--band-max);
+    height:clamp(var(--band-min),18vh,var(--band-max));overflow:hidden;z-index:1;
+  }
   .segments{position:absolute;inset:0;display:flex;pointer-events:none;}
   .seg{height:100%;width:0}
   .seg.blue{background:var(--blue)}
@@ -81,7 +95,7 @@
   }
   .marker-label.blue{color:var(--blue)}
   .marker-label.green{color:var(--green)}
-  /* (end label removed by request) */
+  /* (end label intentionally removed in v18) */
 
   /* Total time (only here, bottom-right under the bar) */
   .total-overlay{
@@ -167,11 +181,12 @@
 </head>
 <body>
   <div class="app" id="app">
-    <div class="stamp" id="stamp">08.09.2025 - v17 - Jimmy James</div>
+    <div class="stamp" id="stamp">08.09.2025 - v18 - Jimmy James</div>
 
     <div class="field" id="field">
       <!-- CLOCK -->
       <div class="clock-strip" id="clockStrip">
+        <div class="overtime-badge" id="otBadge">OVERTIME</div>
         <div class="time-rot"><span class="time" id="clock">0:00</span></div>
         <div class="blink-mask" id="blinkMask"></div>
       </div>
@@ -190,7 +205,7 @@
           <!-- Labels (blue/green only) -->
           <div class="marker-label blue"  id="labelB">4:00</div>
           <div class="marker-label green" id="labelG">14:00</div>
-          <!-- (end label removed) -->
+          <!-- (end label intentionally removed) -->
         </div>
         <!-- Total time (white) bottom-right -->
         <div class="total-overlay" id="totalOverlay">20:00</div>
@@ -302,6 +317,7 @@
 
   const clock = document.getElementById('clock');
   const clockStrip = document.getElementById('clockStrip');
+  const otBadge = document.getElementById('otBadge');
 
   const segB = document.getElementById('segB');
   const segG = document.getElementById('segG');
@@ -312,7 +328,6 @@
   const lineEnd = document.getElementById('lineEnd');
   const labelB = document.getElementById('labelB');
   const labelG = document.getElementById('labelG');
-  // (no labelEnd in v17)
 
   const blinkMask = document.getElementById('blinkMask');
   const endBlink = document.getElementById('endBlink');
@@ -442,7 +457,7 @@
     lineG.style.left   = `calc(${gPct}% - 1px)`;
     lineEnd.style.left = `calc(100% - 2.5px)`; // exact end
 
-    // Labels placed to the LEFT of their lines
+    // Labels placed to the LEFT of their lines (blue/green)
     labelB.textContent  = fmtSS(bSec);
     labelG.textContent  = fmtSS(bSec+gSec);
     labelB.style.left   = `calc(${bPct}% - 24px)`;
@@ -508,6 +523,7 @@
     blinking = false;
     blinkMask.style.display = 'none';
     endBlink.style.display = 'none';
+    root.classList.remove('overtime');
     clock.textContent = fmtSS(0);
     updateDigitColor();
     updateSegments(0);
@@ -525,6 +541,7 @@
       elapsed += add;                    // keep counting past total
       lastTick += add*1000;
 
+      // Clock shows absolute elapsed (20:01, 20:02, …)
       clock.textContent = fmtSS(elapsed);
       updateDigitColor();
       fitClockThrottled();
@@ -532,8 +549,13 @@
       updateSegments(elapsed);
       handleFinalBlinkScheduling();
 
+      // Overtime visuals after total
       if (elapsed >= totalSec){
-        endBlink.style.display = 'block';  // behind the clock
+        endBlink.style.display = 'block';   // blink red/black behind digits
+        root.classList.add('overtime');     // shows badge
+      } else {
+        endBlink.style.display = 'none';
+        root.classList.remove('overtime');
       }
 
       setMiniStatus();
@@ -542,7 +564,7 @@
     rafId = requestAnimationFrame(tick);
   }
 
-  /* ---------- Final (RED) segment minute blinks ---------- */
+  /* ---------- Final (RED) segment minute blinks (only before end) ---------- */
   function inFinalSegment(){
     const finalStart = bSec + gSec; // red starts after blue+green
     return elapsed >= finalStart && elapsed < totalSec;
@@ -559,7 +581,7 @@
     blinking = false;
   }
   async function handleFinalBlinkScheduling(){
-    if (!inFinalSegment()) return;
+    if (!inFinalSegment()) return;  // never blink minutes after end
     const finalStart = bSec + gSec;
     const remaining = totalSec - elapsed; // seconds left in red
     const wholeMinLeft = Math.ceil(remaining / 60);
@@ -633,6 +655,7 @@
     updateDigitColor();
     updateSegments(elapsed);
     positionMarkers();
+    // keep absolute elapsed shown
     clock.textContent = fmtSS(elapsed);
     setMiniStatus();
     fitClockThrottled();
@@ -649,8 +672,8 @@
     rSecOnly.textContent = String(Math.floor(rSec%60)).padStart(2,'0');
   }
   function adjust(seg, kind, delta){
-    const clamp = (v)=>Math.max(0, Math.min(6*60*60, v));
-    const step = (kind==='m') ? 60 : 5;
+    const clamp = (v)=>Math.max(0, Math.min(6*60*60, v)); // up to 6h per segment
+    const step = (kind==='m') ? 60 : 5; // seconds step is 5
     if (seg==='b') bSec = clamp(bSec + delta*step);
     else if (seg==='g') gSec = clamp(gSec + delta*step);
     else if (seg==='r') rSec = clamp(rSec + delta*step);
