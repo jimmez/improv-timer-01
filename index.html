@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-<title>Improv Timer v16</title>
+<title>Improv Timer v17</title>
 <style>
   :root{
     --blue:#3aa8ff;
@@ -31,9 +31,9 @@
     display:grid;grid-template-rows:1fr auto;grid-template-columns:100%;
   }
 
-  /* ===== CLOCK (always black under digits) ===== */
+  /* CLOCK */
   .clock-strip{
-    position:relative;background:#000;z-index:2; /* ABOVE end-blink so digits remain visible */
+    position:relative;background:#000;z-index:2;
     display:flex;align-items:center;justify-content:center;user-select:none;
   }
   .time-rot{transform-origin:center;}
@@ -44,12 +44,13 @@
     display:block;line-height:0.9;font-weight:900;letter-spacing:0.01em;white-space:nowrap;
     text-shadow:0 0 22px rgba(0,0,0,.7);
     color:var(--blue); /* changes with segment; AFTER TOTAL -> --after (black) */
-    font-size:10vw; /* auto-fitted by JS */
+    font-size:10vw;
   }
 
+  /* Minute blink mask in final segment */
   .blink-mask{position:absolute;inset:0;background:#000;pointer-events:none;z-index:3;display:none;}
 
-  /* End blink behind the clock so black digits show on red frames */
+  /* End blink (behind the clock so black digits show on red frames) */
   .end-blink{
     position:absolute;inset:0;pointer-events:none;z-index:0;
     background:var(--bg);
@@ -57,11 +58,9 @@
   }
   @keyframes endBlink{0%{background:var(--bg)}50%{background:var(--danger)}100%{background:var(--danger)}}
 
-  /* ===== BOTTOM PROGRESS BAND ONLY ===== */
-  .band{
-    position:relative;min-height:var(--band-min);max-height:var(--band-max);
-    height:clamp(var(--band-min),18vh,var(--band-max));overflow:hidden;z-index:1;
-  }
+  /* BOTTOM PROGRESS BAND */
+  .band{position:relative;min-height:var(--band-min);max-height:var(--band-max);
+    height:clamp(var(--band-min),18vh,var(--band-max));overflow:hidden;z-index:1;}
   .segments{position:absolute;inset:0;display:flex;pointer-events:none;}
   .seg{height:100%;width:0}
   .seg.blue{background:var(--blue)}
@@ -72,7 +71,7 @@
   .marker{position:absolute;top:0;bottom:0;width:2px;}
   .marker.blue{background:var(--blue)}
   .marker.green{background:var(--green)}
-  .marker.end{background:var(--red);width:5px;} /* thicker end line */
+  .marker.end{background:var(--red);width:5px;} /* thick end line */
 
   .marker-label{
     position:absolute;bottom:6px;transform:translateX(-8px);
@@ -82,9 +81,9 @@
   }
   .marker-label.blue{color:var(--blue)}
   .marker-label.green{color:var(--green)}
-  .marker-label.redwhite{color:#fff}  /* end label = white text on grey pill */
+  /* (end label removed by request) */
 
-  /* White total (only here, bottom-right under the bar) */
+  /* Total time (only here, bottom-right under the bar) */
   .total-overlay{
     position:absolute;right:10px;bottom:6px;z-index:2;
     font-weight:900;font-variant-numeric:tabular-nums;
@@ -103,7 +102,6 @@
   .dot.blue{background:var(--blue)} .dot.green{background:var(--green)} .dot.red{background:var(--red)}
   .bar .spacer{flex:1}
   .bar strong#totalShow{font-size:1.25em}
-  .verchip{padding:4px 8px;border-radius:999px;border:1px solid rgba(255,255,255,.18);opacity:.9}
 
   /* Start slab */
   .start-slab{position:absolute;left:0;top:0;bottom:0;width:20%;display:flex;align-items:center;justify-content:center;
@@ -149,6 +147,18 @@
   .val{padding:6px 10px;border-radius:10px;min-width:72px;text-align:center;font-variant-numeric:tabular-nums;background:#0b0b0b;border:1px dashed rgba(255,255,255,.24);color:#fff;}
   .btnDelete{padding:6px 10px;border-radius:10px;font-weight:800;cursor:pointer;border:1px solid #522;background:#1a0000;color:#ffb3b3}
 
+  .card-footer{
+    position:sticky;bottom:0;z-index:2;
+    background:linear-gradient(0deg,#0b0b0b 82%,rgba(11,11,11,0) 100%);
+    border-top:1px solid rgba(255,255,255,.12);
+    padding:10px 16px calc(10px + env(safe-area-inset-bottom)) 16px;
+    display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+  }
+  .btn{border:1px solid rgba(255,255,255,.18);background:#101010;color:var(--fg);padding:12px 16px;border-radius:12px;font-weight:800;cursor:pointer;}
+  .btn.primary{background:var(--blue);color:#002235}
+  .btn.warn{background:#1a0000;color:#ffb3b3;border-color:#551111}
+  .btn.neutral{background:#0f0f0f}
+
   /* Watermark – main only first 10s; hidden in settings */
   .stamp{position:fixed;right:10px;top:8px;z-index:10;font-size:12px;opacity:0.85;letter-spacing:0.4px;
     background:rgba(0,0,0,0.35);padding:2px 6px;border-radius:8px;border:1px solid rgba(255,255,255,0.12);pointer-events:none;}
@@ -157,7 +167,7 @@
 </head>
 <body>
   <div class="app" id="app">
-    <div class="stamp" id="stamp">08.09.2025 - v16 - Jimmy James</div>
+    <div class="stamp" id="stamp">08.09.2025 - v17 - Jimmy James</div>
 
     <div class="field" id="field">
       <!-- CLOCK -->
@@ -177,14 +187,12 @@
           <div class="marker blue"  id="lineB"></div>
           <div class="marker green" id="lineG"></div>
           <div class="marker end"   id="lineEnd"></div>
-
-          <!-- labels on the lines -->
-          <div class="marker-label blue"     id="labelB">4:00</div>
-          <div class="marker-label green"    id="labelG">14:00</div>
-          <div class="marker-label redwhite" id="labelEnd">20:00</div> <!-- white text on grey pill -->
+          <!-- Labels (blue/green only) -->
+          <div class="marker-label blue"  id="labelB">4:00</div>
+          <div class="marker-label green" id="labelG">14:00</div>
+          <!-- (end label removed) -->
         </div>
-
-        <!-- Total time (white) bottom-right (kept; only one) -->
+        <!-- Total time (white) bottom-right -->
         <div class="total-overlay" id="totalOverlay">20:00</div>
       </div>
 
@@ -201,10 +209,6 @@
       <span class="pill"><span class="dot blue"></span><span id="bShow">4:00</span></span>
       <span class="pill"><span class="dot green"></span><span id="gShow">10:00</span></span>
       <span class="pill"><span class="dot red"></span><span id="rShow">6:00</span></span>
-
-      <!-- Version chip shows for first 5s, placed right of red pill and left of total -->
-      <span class="verchip" id="verBadgeBar">v16</span>
-
       <div class="spacer"></div>
       <span class="pill" title="Total time"><strong id="totalShow">20:00</strong></span>
     </div>
@@ -285,8 +289,8 @@
           <button class="btn" id="pauseBtn">Pause</button>
           <button class="btn primary" id="returnBtn">Return</button>
           <button class="btn warn" id="resetBtn" title="Reset timer to 0">Reset</button>
-          <!-- Version chip in settings footer -->
-          <span class="verchip" id="verBadgeSettings">v16</span>
+          <button class="btn neutral" id="defaultBtn" title="Restore 4/10/6">Default</button>
+          <button class="btn warn" id="deleteAllBtn" title="Press 3× to delete all">Delete All (×3)</button>
         </div>
       </div>
     </div>
@@ -308,7 +312,7 @@
   const lineEnd = document.getElementById('lineEnd');
   const labelB = document.getElementById('labelB');
   const labelG = document.getElementById('labelG');
-  const labelEnd = document.getElementById('labelEnd');
+  // (no labelEnd in v17)
 
   const blinkMask = document.getElementById('blinkMask');
   const endBlink = document.getElementById('endBlink');
@@ -326,6 +330,8 @@
   const pauseBtn = document.getElementById('pauseBtn');
   const returnBtn = document.getElementById('returnBtn');
   const resetBtn = document.getElementById('resetBtn');
+  const defaultBtn = document.getElementById('defaultBtn');
+  const deleteAllBtn = document.getElementById('deleteAllBtn');
 
   const miniDot = document.getElementById('miniDot');
   const miniStatus = document.getElementById('miniStatus');
@@ -341,13 +347,12 @@
 
   const stamp = document.getElementById('stamp');
 
-  const verBadgeBar = document.getElementById('verBadgeBar');
-
   // Defaults (Blue→Green→Red)
-  let bSec = 4*60, gSec = 10*60, rSec = 6*60;
+  const DEFAULT_B = 4*60, DEFAULT_G = 10*60, DEFAULT_R = 6*60;
+  let bSec = DEFAULT_B, gSec = DEFAULT_G, rSec = DEFAULT_R;
   let totalSec = bSec + gSec + rSec;
 
-  let elapsed = 0; // continues past total
+  let elapsed = 0; // keeps counting past total
   let running = false;
   let rafId = null;
   let lastTick = null;
@@ -361,9 +366,6 @@
     const inSettings = sheet.classList.contains('open');
     if (inSettings) stamp.classList.add('hidden');
   }
-
-  // Version chip on bottom bar: show for 5s after start (page load)
-  setTimeout(()=>{ if (verBadgeBar) verBadgeBar.style.display='none'; }, 5000);
 
   /* ---------- Orientation + Giant clock fitting ---------- */
   function applyOrientationClass(){
@@ -428,8 +430,8 @@
   function positionMarkers(){
     if (totalSec <= 0){
       lineB.style.left='0%'; lineG.style.left='0%'; lineEnd.style.left='calc(100% - 2.5px)';
-      labelB.textContent='0:00'; labelG.textContent='0:00'; labelEnd.textContent='0:00';
-      labelB.style.left='0%'; labelG.style.left='0%'; labelEnd.style.left='calc(100% - 40px)';
+      labelB.textContent='0:00'; labelG.textContent='0:00';
+      labelB.style.left='0%'; labelG.style.left='0%';
       totalOverlay.textContent='0:00';
       return;
     }
@@ -440,13 +442,13 @@
     lineG.style.left   = `calc(${gPct}% - 1px)`;
     lineEnd.style.left = `calc(100% - 2.5px)`; // exact end
 
+    // Labels placed to the LEFT of their lines
     labelB.textContent  = fmtSS(bSec);
     labelG.textContent  = fmtSS(bSec+gSec);
-    labelEnd.textContent= fmtSS(totalSec);
-
     labelB.style.left   = `calc(${bPct}% - 24px)`;
     labelG.style.left   = `calc(${gPct}% - 32px)`;
-    labelEnd.style.left = `calc(100% - 40px)`; // to the left of the end line
+
+    totalOverlay.textContent = fmtSS(totalSec); // single white total
   }
 
   function refreshInfoBar(){
@@ -588,13 +590,37 @@
   };
   const closeSettings = ()=>{
     sheet.classList.remove('open');
-    updateStampVisibility(); // watermark remains hidden after 10s anyway
+    updateStampVisibility();
   };
 
   // Settings buttons
   pauseBtn.addEventListener('click', ()=>{ pause(); setMiniStatus(); });
   returnBtn.addEventListener('click', ()=>{ saveTimes(); closeSettings(); });
   resetBtn.addEventListener('click', ()=>{ pause(); resetElapsed(); });
+
+  // Default (restore 4/10/6)
+  defaultBtn.addEventListener('click', ()=>{
+    bSec = DEFAULT_B; gSec = DEFAULT_G; rSec = DEFAULT_R;
+    updateDisplayVals(); saveTimes();
+  });
+
+  // Delete All (press 3×)
+  let delTap = 0, delTimer = null;
+  deleteAllBtn.addEventListener('click', ()=>{
+    delTap++;
+    deleteAllBtn.textContent = `Delete All (${delTap}/3)`;
+    if (delTimer) clearTimeout(delTimer);
+    delTimer = setTimeout(()=>{
+      delTap = 0; deleteAllBtn.textContent = 'Delete All (×3)';
+    }, 1200);
+    if (delTap >= 3){
+      delTap = 0;
+      bSec = 0; gSec = 0; rSec = 0;
+      updateDisplayVals(); saveTimes();
+      deleteAllBtn.textContent = 'Deleted';
+      setTimeout(()=> deleteAllBtn.textContent = 'Delete All (×3)', 900);
+    }
+  });
 
   // Start slab
   startBtn.addEventListener('click', ()=>{ closeSettings(); start(); });
@@ -613,7 +639,7 @@
     updateStampVisibility();
   }
 
-  // Stepper logic (minutes ±1, seconds ±5) + Delete
+  // Steppers & Delete
   function updateDisplayVals(){
     bMinVal.textContent = Math.floor(bSec/60);
     bSecOnly.textContent = String(Math.floor(bSec%60)).padStart(2,'0');
@@ -623,8 +649,8 @@
     rSecOnly.textContent = String(Math.floor(rSec%60)).padStart(2,'0');
   }
   function adjust(seg, kind, delta){
-    const clamp = (v)=>Math.max(0, Math.min(6*60*60, v)); // up to 6h per segment
-    const step = (kind==='m') ? 60 : 5; // seconds step is 5
+    const clamp = (v)=>Math.max(0, Math.min(6*60*60, v));
+    const step = (kind==='m') ? 60 : 5;
     if (seg==='b') bSec = clamp(bSec + delta*step);
     else if (seg==='g') gSec = clamp(gSec + delta*step);
     else if (seg==='r') rSec = clamp(rSec + delta*step);
@@ -661,7 +687,7 @@
   updateDigitColor();
   fitClock();
   setMiniStatus();
-  // watermark & version chip timers started above
+
   window.addEventListener('resize', ()=>{ fitClockThrottled(); positionMarkers(); });
   window.addEventListener('orientationchange', ()=>{ fitClockThrottled(); positionMarkers(); });
 
