@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-<title>Improv Timer v20</title>
+<title>Improv Timer v21</title>
 <style>
   :root{
     --blue:#3aa8ff;
@@ -14,8 +14,8 @@
     --fg:#fff;
     --danger:#ff2222;
 
-    --band-min:28px;
-    --band-max:24vh;
+    --band-min:26px;
+    --band-max:22vh; /* cap */
   }
 
   html,body{
@@ -40,23 +40,25 @@
   .landscape .time-rot{ transform: none; }
 
   .time{
-    display:block;line-height:0.9;font-weight:900;letter-spacing:0.01em;white-space:nowrap;
+    display:block;line-height:0.88;font-weight:900;letter-spacing:0.005em;white-space:nowrap;
     text-shadow:0 0 22px rgba(0,0,0,.7);
-    color:var(--blue); /* changes with segment; overtime forces BLUE */
+    color:var(--blue); /* Blue→Green→Red; overtime = BLUE */
     font-size:10vw; /* auto-fitted by JS */
   }
 
-  /* OVERTIME badge (shows after end) */
-  .overtime-badge{
-    position:absolute;top:8px;left:10px;z-index:4;
-    padding:3px 8px;border-radius:999px;
-    font-weight:900;font-size:12px;letter-spacing:0.6px;
-    color:#fff;background:rgba(255,0,0,0.18);
-    border:1px solid rgba(255,0,0,0.45);
-    text-shadow:0 0 8px rgba(0,0,0,.5);
-    display:none;
+  /* OVERTIME vertical ribbon (full height on the left) */
+  .overtime-ribbon{
+    position:absolute;left:10px;top:0;bottom:0;z-index:4;
+    width:28px;display:none;align-items:center;justify-content:center;
+    background:rgba(255,0,0,0.18);border-left:1px solid rgba(255,0,0,0.55);border-right:1px solid rgba(255,0,0,0.35);
+    backdrop-filter:blur(1px);
   }
-  .overtime .overtime-badge{ display:inline-flex; }
+  .overtime .overtime-ribbon{ display:flex; }
+  .overtime-text{
+    writing-mode:vertical-rl;text-orientation:upright;
+    font-weight:900;font-size:12px;letter-spacing:0.6px;color:#fff;text-shadow:0 0 8px rgba(0,0,0,.5);
+    user-select:none;
+  }
 
   /* Minute blink mask in final (pre-end) segment */
   .blink-mask{position:absolute;inset:0;background:#000;pointer-events:none;z-index:3;display:none;}
@@ -72,7 +74,8 @@
   /* ===== BOTTOM PROGRESS BAND ONLY ===== */
   .band{
     position:relative;min-height:var(--band-min);max-height:var(--band-max);
-    height:clamp(var(--band-min),18vh,var(--band-max));overflow:hidden;z-index:1;
+    height:clamp(var(--band-min),15vh,var(--band-max)); /* ~15% smaller than 18vh */
+    overflow:hidden;z-index:1;
   }
   .segments{position:absolute;inset:0;display:flex;pointer-events:none;}
   .seg{height:100%;width:0}
@@ -116,11 +119,12 @@
   .bar .spacer{flex:1}
   .bar strong#totalShow{font-size:1.25em}
 
-  /* Start slab */
-  .start-slab{position:absolute;left:0;top:0;bottom:0;width:20%;display:flex;align-items:center;justify-content:center;
+  /* Start slab (left 20%) — button fills vertically */
+  .start-slab{position:absolute;left:0;top:0;bottom:0;width:20%;display:flex;align-items:stretch;justify-content:center;
     background:rgba(58,168,255,0.07);border-right:1px solid rgba(255,255,255,.12);cursor:pointer;user-select:none;z-index:6;}
-  .start-slab button{width:88%;max-width:340px;padding:18px 12px;border-radius:16px;
-    border:2px solid rgba(255,255,255,.28);background:var(--blue);color:#002235;font-weight:900;font-size:clamp(18px,3.8vw,28px);cursor:pointer;}
+  .start-slab button{width:92%;height:100%;max-width:420px;border-radius:0;
+    border:2px solid rgba(255,255,255,.28);background:var(--blue);color:#002235;font-weight:900;font-size:clamp(22px,4.2vw,34px);cursor:pointer;}
+
   .start-hidden{display:none;}
 
   /* Settings */
@@ -180,12 +184,12 @@
 </head>
 <body>
   <div class="app" id="app">
-    <div class="stamp" id="stamp">08.09.2025 - v20 - Jimmy James</div>
+    <div class="stamp" id="stamp">08.09.2025 - v21 - Jimmy James</div>
 
     <div class="field" id="field">
       <!-- CLOCK -->
       <div class="clock-strip" id="clockStrip">
-        <div class="overtime-badge" id="otBadge">OVERTIME</div>
+        <div class="overtime-ribbon" id="otRibbon"><span class="overtime-text">OVERTIME</span></div>
         <div class="time-rot"><span class="time" id="clock">0:00</span></div>
         <div class="blink-mask" id="blinkMask"></div>
       </div>
@@ -315,7 +319,6 @@
 
   const clock = document.getElementById('clock');
   const clockStrip = document.getElementById('clockStrip');
-  const otBadge = document.getElementById('otBadge');
 
   const segB = document.getElementById('segB');
   const segG = document.getElementById('segG');
@@ -394,28 +397,28 @@
     const isPortrait = root.classList.contains('portrait');
 
     if (isPortrait){
-      const maxRotW = rect.width * 0.995;
-      const maxRotH = rect.height * 0.985;
-      let lo=4, hi=Math.max(12, rect.height*1.8);
+      const maxRotW = rect.width * 0.998;  /* more aggressive width use */
+      const maxRotH = rect.height * 0.992; /* taller digits */
+      let lo=6, hi=Math.max(24, rect.height*2.2);
       const fits = (px)=>{
         clock.style.fontSize = px + 'px';
         const W = clock.scrollWidth, H = clock.scrollHeight;
         const rotW = H, rotH = W; // rotated 90°
         return (rotW <= maxRotW) && (rotH <= maxRotH);
       };
-      while (fits(hi)) hi *= 1.18;
+      while (fits(hi)) hi *= 1.2;
       while (hi - lo > 1){ const mid = Math.floor((lo+hi)/2); if (fits(mid)) lo = mid; else hi = mid; }
       clock.style.fontSize = lo + 'px';
     } else {
-      const maxW = rect.width * 0.995;
-      const maxH = rect.height * 0.965;
-      let lo=4, hi=Math.max(12, rect.height*1.8);
+      const maxW = rect.width * 0.998;
+      const maxH = rect.height * 0.985;
+      let lo=6, hi=Math.max(24, rect.height*2.1);
       const fits = (px)=>{
         clock.style.fontSize = px + 'px';
         const W = clock.scrollWidth, H = clock.scrollHeight;
         return (H <= maxH) && (W <= maxW);
       };
-      while (fits(hi)) hi *= 1.18;
+      while (fits(hi)) hi *= 1.2;
       while (hi - lo > 1){ const mid = Math.floor((lo+hi)/2); if (fits(mid)) lo = mid; else hi = mid; }
       clock.style.fontSize = lo + 'px';
     }
@@ -553,7 +556,7 @@
       // Overtime visuals after total (MAIN PAGE)
       if (elapsed >= totalSec){
         endBlink.style.display = 'block';   // blink red/black behind digits
-        root.classList.add('overtime');     // shows badge
+        root.classList.add('overtime');     // shows vertical ribbon
       } else {
         endBlink.style.display = 'none';
         root.classList.remove('overtime');
@@ -605,6 +608,9 @@
     }
   });
 
+  // Make the whole start slab clickable (not just the button)
+  startSlab.addEventListener('click', ()=>{ if (!running) { closeSettings(); start(); } });
+
   // Settings open/close
   const openSettings = ()=>{
     sheet.classList.add('open');
@@ -645,7 +651,7 @@
     }
   });
 
-  // Start slab
+  // Start slab button (kept for keyboard / accessibility)
   startBtn.addEventListener('click', ()=>{ closeSettings(); start(); });
 
   /* ---------- Save times / update UI ---------- */
