@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-<title>Improv Timer v24</title>
+<title>Improv Timer v25</title>
 <style>
   :root{
     --blue:#3aa8ff;   /* segment 1 (Blue) */
@@ -14,8 +14,11 @@
     --fg:#fff;
 
     --band-min:26px;
-    --band-max:22vh; /* cap */
-    --overtime-yellow:#ffeb00; /* bright yellow background in overtime */
+    --band-max:22vh;
+
+    /* Overtime palette */
+    --overtime-yellow:#ffff00; /* whole background in OT */
+    --overtime-blue:#0044ff;   /* strong blue digits in OT */
   }
 
   html,body{
@@ -23,18 +26,22 @@
     font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif;
     overflow:hidden;
     -webkit-tap-highlight-color: transparent;
+    transition:background-color .2s linear;
   }
+
+  /* Whole screen turns bright yellow in overtime */
+  body.overtime{ background:var(--overtime-yellow); }
 
   .app{position:relative;height:100%;width:100%;display:flex;flex-direction:column;}
   .field{
-    position:relative;flex:1 1 auto;background:var(--bg);
+    position:relative;flex:1 1 auto;
     display:grid;grid-template-rows:1fr auto;grid-template-columns:100%;
   }
 
   /* ===== CLOCK STRIP ===== */
   .clock-strip{
     position:relative;z-index:2;
-    background:#000;                /* normal = black; overtime switches to yellow via JS */
+    background:#000;                /* normal = black; in OT we set transparent via JS to let yellow show */
     display:flex;align-items:center;justify-content:center;user-select:none;
     transition:background .15s linear;
   }
@@ -45,12 +52,12 @@
   .time{
     display:block;line-height:0.88;font-weight:900;letter-spacing:0.005em;white-space:nowrap;
     text-shadow:0 0 22px rgba(0,0,0,.7);
-    color:var(--blue); /* Blue→Green→Red; overtime = BLUE (kept) */
+    color:var(--blue); /* Blue→Green→Red; overtime = --overtime-blue (via JS) */
     font-size:10vw;    /* auto-fitted by JS */
-    transition:opacity .12s linear;
+    transition:opacity .12s linear, color .12s linear;
   }
 
-  /* OVERTIME vertical ribbon — “OVER” / “TIME” (full height) */
+  /* OVERTIME vertical ribbon (full height on the left) – “OVER” / “TIME” */
   .overtime-ribbon{
     position:absolute;left:10px;top:0;bottom:0;z-index:4;
     width:58px;display:none;align-items:center;justify-content:center;
@@ -62,15 +69,15 @@
   .overtime .overtime-ribbon{ display:flex; }
   .overtime-text{
     writing-mode:vertical-lr; text-orientation:upright;
-    white-space:pre-line; /* honor newline */
+    white-space:pre-line;
     font-weight:900;font-size:14px;letter-spacing:0.8px;color:#fff;text-shadow:0 0 8px rgba(0,0,0,.5);
     user-select:none;
   }
 
-  /* Final minute blink mask (pre-end only) */
+  /* Minute blink mask in final (pre-end) segment */
   .blink-mask{position:absolute;inset:0;background:#000;pointer-events:none;z-index:3;display:none;}
 
-  /* ===== BOTTOM PROGRESS BAND ONLY ===== */
+  /* ===== BOTTOM PROGRESS BAND ===== */
   .band{
     position:relative;min-height:var(--band-min);max-height:var(--band-max);
     height:clamp(var(--band-min),15vh,var(--band-max));
@@ -86,7 +93,7 @@
   .marker{position:absolute;top:0;bottom:0;width:2px;}
   .marker.blue{background:var(--blue)}
   .marker.green{background:var(--green)}
-  .marker.end{background:var(--red);width:5px;} /* thicker end line */
+  .marker.end{background:var(--red);width:5px;}
 
   .marker-label{
     position:absolute;bottom:6px;transform:translateX(-8px);
@@ -117,14 +124,14 @@
   .bar .spacer{flex:1}
   .bar strong#totalShow{font-size:1.25em}
 
-  /* Start slab */
+  /* Start slab (left 20%) — button fills vertically */
   .start-slab{position:absolute;left:0;top:0;bottom:0;width:20%;display:flex;align-items:stretch;justify-content:center;
     background:rgba(58,168,255,0.07);border-right:1px solid rgba(255,255,255,.12);cursor:pointer;user-select:none;z-index:6;}
   .start-slab button{width:92%;height:100%;max-width:420px;border-radius:0;
     border:2px solid rgba(255,255,255,.28);background:var(--blue);color:#002235;font-weight:900;font-size:clamp(22px,4.2vw,34px);cursor:pointer;}
   .start-hidden{display:none;}
 
-  /* ===== Settings (compact & responsive) ===== */
+  /* ===== Settings (responsive & compact) ===== */
   .sheet{position:fixed;inset:0;background:rgba(0,0,0,.66);display:none;align-items:center;justify-content:center;z-index:11;}
   .sheet.open{display:flex}
   .card{width:min(880px,94vw);max-height:92vh;background:#0b0b0b;color:var(--fg);
@@ -134,7 +141,7 @@
     padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.08);display:flex;align-items:flex-end;justify-content:space-between;gap:8px;}
   .card-title{margin:0;font-size:16px;font-weight:800;}
 
-  /* Button color lock (no blue flash on press) */
+  /* Button color lock */
   .btn, .btn:focus, .btn:active { outline: none; }
   .btn{border:1px solid rgba(255,255,255,.18);background:#101010;color:var(--fg);padding:10px 14px;border-radius:12px;font-weight:800;cursor:pointer;font-size:14px;user-select:none;}
   .btn.primary{background:var(--blue);color:#002235}
@@ -178,8 +185,7 @@
   /* Preview clock block for landscape (4th quadrant) */
   .group.preview{
     display:none;
-    align-items:center;justify-content:center;text-align:center;
-    gap:8px;
+    align-items:center;justify-content:center;text-align:center;gap:8px;
   }
   .previewTitle{font-weight:800;font-size:13px;opacity:.9;margin:0 0 6px 0}
   .previewClock{
@@ -209,10 +215,10 @@
     .btnStep{min-width:34px;padding:6px 6px;font-size:12px}
     .val{min-width:50px}
     .btnDelete{font-size:11.5px;padding:6px 8px}
-    .group.preview{display:none;} /* no preview block in portrait */
+    .group.preview{display:none;}
   }
 
-  /* Landscape: grid 2×2 with preview at 4th quadrant (to the right of Red) */
+  /* Landscape: grid 2×2 with preview at 4th quadrant */
   @media (orientation:landscape) {
     .card-body .row{
       display:grid;
@@ -235,7 +241,7 @@
 </head>
 <body>
   <div class="app" id="app">
-    <div class="stamp" id="stamp">08.09.2025 - v24 - Jimmy James</div>
+    <div class="stamp" id="stamp">08.09.2025 - v25 - Jimmy James</div>
 
     <div class="field" id="field">
       <!-- CLOCK -->
@@ -243,7 +249,6 @@
         <div class="overtime-ribbon" id="otRibbon"><span class="overtime-text">OVER
 TIME</span></div>
         <div class="time-rot"><span class="time" id="clock">0:00</span></div>
-        <!-- Pre-end minute blink mask -->
         <div class="blink-mask" id="blinkMask"></div>
       </div>
 
@@ -258,9 +263,11 @@ TIME</span></div>
           <div class="marker blue"  id="lineB"></div>
           <div class="marker green" id="lineG"></div>
           <div class="marker end"   id="lineEnd"></div>
+          <!-- Labels (blue/green only) -->
           <div class="marker-label blue"  id="labelB">4:00</div>
           <div class="marker-label green" id="labelG">14:00</div>
         </div>
+        <!-- Total time (white) bottom-right -->
         <div class="total-overlay" id="totalOverlay">20:00</div>
       </div>
 
@@ -412,13 +419,6 @@ TIME</span></div>
   const previewClock = document.getElementById('previewClock');
   const previewState = document.getElementById('previewState');
 
-  const bMinVal = document.getElementById('bMinVal');
-  const bSecOnly = document.getElementById('bSecOnly');
-  const gMinVal = document.getElementById('gMinVal');
-  const gSecOnly = document.getElementById('gSecOnly');
-  const rMinVal = document.getElementById('rMinVal');
-  const rSecOnly = document.getElementById('rSecOnly');
-
   const stamp = document.getElementById('stamp');
 
   // Defaults (Blue→Green→Red)
@@ -433,9 +433,7 @@ TIME</span></div>
 
   let scheduledFinalBlinks = new Set();
   let blinking = false;
-
-  // Overtime clock blink tracking (3× every minute after total)
-  let otBlinkMinuteDone = -1; // minutes over total for which we already blinked
+  let otBlinkMinuteDone = -1;
 
   // Watermark: auto-hide after 10s, hide while settings is open
   setTimeout(()=> stamp.classList.add('hidden'), 10000);
@@ -458,13 +456,13 @@ TIME</span></div>
     const isPortrait = root.classList.contains('portrait');
 
     if (isPortrait){
-      const maxRotW = rect.width * 0.998;  /* aggressive width use */
-      const maxRotH = rect.height * 0.992; /* taller digits */
+      const maxRotW = rect.width * 0.998;
+      const maxRotH = rect.height * 0.992;
       let lo=6, hi=Math.max(24, rect.height*2.2);
       const fits = (px)=>{
         clock.style.fontSize = px + 'px';
         const W = clock.scrollWidth, H = clock.scrollHeight;
-        const rotW = H, rotH = W; // rotated 90°
+        const rotW = H, rotH = W;
         return (rotW <= maxRotW) && (rotH <= maxRotH);
       };
       while (fits(hi)) hi *= 1.2;
@@ -494,13 +492,13 @@ TIME</span></div>
   }
 
   /* ---------- Digit color per segment; OVERTIME -> BLUE ---------- */
-  function getVar(name){ return getComputedStyle(document.documentElement).getPropertyValue(name); }
+  function getVar(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
   function updateDigitColor(){
     const bEnd = bSec, gEnd = bSec + gSec;
     if (elapsed < bEnd)          clock.style.color = getVar('--blue');
     else if (elapsed < gEnd)     clock.style.color = getVar('--green');
     else if (elapsed < totalSec) clock.style.color = getVar('--red');
-    else                         clock.style.color = getVar('--blue'); // overtime = BLUE digits
+    else                         clock.style.color = getVar('--overtime-blue'); // overtime = strong blue
   }
 
   /* ---------- Markers & labels ---------- */
@@ -513,16 +511,16 @@ TIME</span></div>
       return;
     }
     const bPct = (bSec/totalSec)*100;
-    the_gPct = ((bSec+gSec)/totalSec)*100;
+    const gPct = ((bSec+gSec)/totalSec)*100;
 
     lineB.style.left   = `calc(${bPct}% - 1px)`;
-    lineG.style.left   = `calc(${the_gPct}% - 1px)`;
-    lineEnd.style.left = `calc(100% - 2.5px)`; // exact end
+    lineG.style.left   = `calc(${gPct}% - 1px)`;
+    lineEnd.style.left = `calc(100% - 2.5px)`;
 
     labelB.textContent  = fmtSS(bSec);
     labelG.textContent  = fmtSS(bSec+gSec);
     labelB.style.left   = `calc(${bPct}% - 24px)`;
-    labelG.style.left   = `calc(${the_gPct}% - 32px)`;
+    labelG.style.left   = `calc(${gPct}% - 32px)`;
 
     totalOverlay.textContent = fmtSS(totalSec);
   }
@@ -573,6 +571,7 @@ TIME</span></div>
     running = true;
     startSlab.classList.add('start-hidden');
     clockStrip.style.background = '#000';
+    root.classList.remove('overtime'); // reset body bg
     lastTick = performance.now();
     setMiniStatus();
     updateStampVisibility();
@@ -593,6 +592,7 @@ TIME</span></div>
     otBlinkMinuteDone = -1;
     clock.style.opacity = '1';
     clockStrip.style.background = '#000';
+    root.classList.remove('overtime');
     clock.textContent = fmtSS(0);
     updateDigitColor();
     updateSegments(0);
@@ -607,7 +607,7 @@ TIME</span></div>
     const dt = (now - lastTick) / 1000;
     if (dt >= 0.25){
       const add = Math.floor(dt);
-      elapsed += add;                    // keep counting past total
+      elapsed += add;
       lastTick += add*1000;
 
       clock.textContent = fmtSS(elapsed);
@@ -619,14 +619,15 @@ TIME</span></div>
       handleFinalBlinkScheduling();      // only before end
 
       if (elapsed >= totalSec){
-        clockStrip.style.background = getComputedStyle(document.documentElement).getPropertyValue('--overtime-yellow') || '#ffeb00';
+        // OVERTIME visuals: whole background yellow; digits strong blue; clock strip transparent
         root.classList.add('overtime');
+        clockStrip.style.background = 'transparent';
 
         const minutesOver = Math.floor((elapsed - totalSec) / 60);
         const atBoundary = ((elapsed - totalSec) % 60 === 0);
         if (atBoundary && minutesOver !== otBlinkMinuteDone){
           otBlinkMinuteDone = minutesOver;
-          blinkClockDigits(3);
+          blinkClockDigits(3); // blink digits 3× each minute in OT
         }
       } else {
         clockStrip.style.background = '#000';
@@ -688,9 +689,9 @@ TIME</span></div>
     }
   });
 
-  // Make the whole start slab clickable (not just the button)
+  // Make the whole start slab clickable
   startSlab.addEventListener('click', ()=>{ if (!running) { closeSettings(); start(); } });
-  document.getElementById('startBtn').addEventListener('click', ()=>{ closeSettings(); start(); });
+  startBtn.addEventListener('click', ()=>{ closeSettings(); start(); });
 
   // Settings open/close
   const openSettings = ()=>{
@@ -741,11 +742,11 @@ TIME</span></div>
     updateSegments(elapsed);
     positionMarkers();
     if (elapsed >= totalSec){
-      clockStrip.style.background = getComputedStyle(document.documentElement).getPropertyValue('--overtime-yellow') || '#ffeb00';
       root.classList.add('overtime');
+      clockStrip.style.background = 'transparent';
     } else {
-      clockStrip.style.background = '#000';
       root.classList.remove('overtime');
+      clockStrip.style.background = '#000';
     }
     setMiniStatus();
     fitClockThrottled();
@@ -754,12 +755,12 @@ TIME</span></div>
 
   // Steppers & Delete
   function updateDisplayVals(){
-    bMinVal.textContent = Math.floor(bSec/60);
-    bSecOnly.textContent = String(Math.floor(bSec%60)).padStart(2,'0');
-    gMinVal.textContent = Math.floor(gSec/60);
-    gSecOnly.textContent = String(Math.floor(gSec%60)).padStart(2,'0');
-    rMinVal.textContent = Math.floor(rSec/60);
-    rSecOnly.textContent = String(Math.floor(rSec%60)).padStart(2,'0');
+    document.getElementById('bMinVal').textContent = Math.floor(bSec/60);
+    document.getElementById('bSecOnly').textContent = String(Math.floor(bSec%60)).padStart(2,'0');
+    document.getElementById('gMinVal').textContent = Math.floor(gSec/60);
+    document.getElementById('gSecOnly').textContent = String(Math.floor(gSec%60)).padStart(2,'0');
+    document.getElementById('rMinVal').textContent = Math.floor(rSec/60);
+    document.getElementById('rSecOnly').textContent = String(Math.floor(rSec%60)).padStart(2,'0');
   }
   function adjust(seg, kind, delta){
     const clamp = (v)=>Math.max(0, Math.min(6*60*60, v)); // up to 6h per segment
