@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-<title>Improv Timer v21</title>
+<title>Improv Timer v22</title>
 <style>
   :root{
     --blue:#3aa8ff;
@@ -49,14 +49,17 @@
   /* OVERTIME vertical ribbon (full height on the left) */
   .overtime-ribbon{
     position:absolute;left:10px;top:0;bottom:0;z-index:4;
-    width:28px;display:none;align-items:center;justify-content:center;
-    background:rgba(255,0,0,0.18);border-left:1px solid rgba(255,0,0,0.55);border-right:1px solid rgba(255,0,0,0.35);
+    width:52px;display:none;align-items:center;justify-content:center;
+    background:rgba(255,0,0,0.18);
+    border-left:1px solid rgba(255,0,0,0.55);
+    border-right:1px solid rgba(255,0,0,0.35);
     backdrop-filter:blur(1px);
   }
   .overtime .overtime-ribbon{ display:flex; }
   .overtime-text{
     writing-mode:vertical-rl;text-orientation:upright;
-    font-weight:900;font-size:12px;letter-spacing:0.6px;color:#fff;text-shadow:0 0 8px rgba(0,0,0,.5);
+    white-space:pre-line; /* allow line break */
+    font-weight:900;font-size:13px;letter-spacing:0.8px;color:#fff;text-shadow:0 0 8px rgba(0,0,0,.5);
     user-select:none;
   }
 
@@ -97,7 +100,6 @@
   }
   .marker-label.blue{color:var(--blue)}
   .marker-label.green{color:var(--green)}
-  /* (no end label by request) */
 
   /* Total time (only here, bottom-right under the bar) */
   .total-overlay{
@@ -124,33 +126,33 @@
     background:rgba(58,168,255,0.07);border-right:1px solid rgba(255,255,255,.12);cursor:pointer;user-select:none;z-index:6;}
   .start-slab button{width:92%;height:100%;max-width:420px;border-radius:0;
     border:2px solid rgba(255,255,255,.28);background:var(--blue);color:#002235;font-weight:900;font-size:clamp(22px,4.2vw,34px);cursor:pointer;}
-
   .start-hidden{display:none;}
 
-  /* Settings */
+  /* ===== Settings (responsive & compact) ===== */
   .sheet{position:fixed;inset:0;background:rgba(0,0,0,.66);display:none;align-items:center;justify-content:center;z-index:11;}
   .sheet.open{display:flex}
-  .card{width:min(900px,92vw);max-height:92vh;background:#0b0b0b;color:var(--fg);
+  .card{width:min(880px,94vw);max-height:92vh;background:#0b0b0b;color:var(--fg);
     border:1px solid rgba(255,255,255,.12);border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.6);
     padding:0;display:flex;flex-direction:column;overflow:hidden;}
   .card-header{position:sticky;top:0;z-index:2;background:linear-gradient(180deg,#0b0b0b 85%,rgba(11,11,11,0) 100%);
-    padding:14px 16px 10px 16px;border-bottom:1px solid rgba(255,255,255,.08);display:flex;align-items:flex-end;justify-content:space-between;gap:12px;}
-  .card-title{margin:0;font-size:18px;font-weight:800;}
-  .status{display:flex;align-items:center;gap:10px;font-variant-numeric:tabular-nums;background:rgba(255,255,255,.06);
-    padding:6px 10px;border-radius:10px;border:1px solid rgba(255,255,255,.12);}
-  .status .dot{width:10px;height:10px;border-radius:50%;}
+    padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.08);display:flex;align-items:flex-end;justify-content:space-between;gap:8px;}
+  .card-title{margin:0;font-size:16px;font-weight:800;}
+  .status{display:flex;align-items:center;gap:8px;font-variant-numeric:tabular-nums;background:rgba(255,255,255,.06);
+    padding:4px 8px;border-radius:10px;border:1px solid rgba(255,255,255,.12);font-size:12px;}
+  .status .dot{width:9px;height:9px;border-radius:50%;}
   .status .dot.run{background:#28d17c}
   .status .dot.pause{background:#ffb020}
   .status .dot.reset{background:#aaaaaa}
   .mini-time{font-weight:900;letter-spacing:0.02em}
   .mini-total{opacity:.8}
   .mini-divider{opacity:.6}
-  .card-body{padding:12px 16px;overflow:auto;}
-  .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;}
-  .row + .row{margin-top:12px;}
-  .group{flex:1 1 260px;min-width:260px;background:#121212;border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:12px;}
+  .card-body{padding:10px 12px;overflow:auto;}
+  .row{display:flex;gap:10px;align-items:stretch;flex-wrap:wrap;}
+  .row + .row{margin-top:10px;}
+  .group{flex:1 1 240px;min-width:240px;max-width:100%;
+    background:#121212;border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:10px;}
   .group.themed{--theme:#fff;}
-  .group.themed h4{margin:0 0 8px 0;display:flex;align-items:center;gap:8px;font-size:16px;color:var(--theme)}
+  .group.themed h4{margin:0 0 6px 0;display:flex;align-items:center;gap:6px;font-size:14px;color:var(--theme)}
   .group.themed .lbl{color:var(--theme);opacity:.9}
   .group.themed .val{border:1px dashed rgba(255,255,255,.24);color:var(--theme)}
   .group.themed .btnStep{border:1px solid rgba(255,255,255,.24);color:#000;background:#e6e6e6;}
@@ -158,23 +160,35 @@
   .group.green { --theme: var(--green); }
   .group.red   { --theme: var(--red); }
 
-  .counter{display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap;}
-  .lbl{opacity:.8;font-size:12px;min-width:70px}
-  .btnStep{padding:6px 10px;border-radius:10px;font-weight:800;cursor:pointer;min-width:44px;text-align:center}
-  .val{padding:6px 10px;border-radius:10px;min-width:72px;text-align:center;font-variant-numeric:tabular-nums;background:#0b0b0b;border:1px dashed rgba(255,255,255,.24);color:#fff;}
-  .btnDelete{padding:6px 10px;border-radius:10px;font-weight:800;cursor:pointer;border:1px solid #522;background:#1a0000;color:#ffb3b3}
+  .counter{display:flex;align-items:center;gap:6px;margin-top:6px;flex-wrap:nowrap;}
+  .lbl{opacity:.8;font-size:11px;min-width:64px}
+  .btnStep{padding:6px 8px;border-radius:10px;font-weight:800;cursor:pointer;min-width:36px;text-align:center;font-size:12px}
+  .val{padding:6px 8px;border-radius:10px;min-width:56px;text-align:center;font-variant-numeric:tabular-nums;background:#0b0b0b;border:1px dashed rgba(255,255,255,.24);color:#fff;}
+  .btnDelete{padding:6px 8px;border-radius:10px;font-weight:800;cursor:pointer;border:1px solid #522;background:#1a0000;color:#ffb3b3;font-size:12px}
 
   .card-footer{
     position:sticky;bottom:0;z-index:2;
     background:linear-gradient(0deg,#0b0b0b 82%,rgba(11,11,11,0) 100%);
     border-top:1px solid rgba(255,255,255,.12);
-    padding:10px 16px calc(10px + env(safe-area-inset-bottom)) 16px;
-    display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+    padding:8px 12px calc(8px + env(safe-area-inset-bottom)) 12px;
+    display:flex;align-items:center;gap:8px;flex-wrap:wrap;
   }
-  .btn{border:1px solid rgba(255,255,255,.18);background:#101010;color:var(--fg);padding:12px 16px;border-radius:12px;font-weight:800;cursor:pointer;}
+  .btn{border:1px solid rgba(255,255,255,.18);background:#101010;color:var(--fg);padding:10px 14px;border-radius:12px;font-weight:800;cursor:pointer;font-size:14px}
   .btn.primary{background:var(--blue);color:#002235}
   .btn.warn{background:#1a0000;color:#ffb3b3;border-color:#551111}
   .btn.neutral{background:#0f0f0f}
+
+  /* Portrait-specific tightening for Settings */
+  @media (orientation:portrait) {
+    .card{width:96vw;max-height:90vh;}
+    .row{gap:8px}
+    .group{min-width:220px;padding:8px}
+    .group.themed h4{font-size:13px}
+    .lbl{min-width:56px;font-size:10.5px}
+    .btnStep{min-width:34px;padding:6px 6px;font-size:12px}
+    .val{min-width:50px}
+    .btnDelete{font-size:11.5px;padding:6px 8px}
+  }
 
   /* Watermark – main only first 10s; hidden in settings */
   .stamp{position:fixed;right:10px;top:8px;z-index:10;font-size:12px;opacity:0.85;letter-spacing:0.4px;
@@ -184,12 +198,13 @@
 </head>
 <body>
   <div class="app" id="app">
-    <div class="stamp" id="stamp">08.09.2025 - v21 - Jimmy James</div>
+    <div class="stamp" id="stamp">08.09.2025 - v22 - Jimmy James</div>
 
     <div class="field" id="field">
       <!-- CLOCK -->
       <div class="clock-strip" id="clockStrip">
-        <div class="overtime-ribbon" id="otRibbon"><span class="overtime-text">OVERTIME</span></div>
+        <div class="overtime-ribbon" id="otRibbon"><span class="overtime-text">OVER
+TIME</span></div>
         <div class="time-rot"><span class="time" id="clock">0:00</span></div>
         <div class="blink-mask" id="blinkMask"></div>
       </div>
@@ -237,7 +252,7 @@
           <h2 class="card-title">Improv Timer Settings</h2>
           <div class="status" id="statusBox">
             <span class="dot pause" id="miniDot"></span>
-            <span id="miniStatus">Paused</span>
+            <span id="miniStatus">Paused</</span>
             <span class="mini-divider">·</span>
             <span class="mini-time" id="miniClock">0:00</span>
             <span class="mini-total" id="miniTotal">/ 20:00</span>
@@ -397,7 +412,7 @@
     const isPortrait = root.classList.contains('portrait');
 
     if (isPortrait){
-      const maxRotW = rect.width * 0.998;  /* more aggressive width use */
+      const maxRotW = rect.width * 0.998;  /* aggressive width use */
       const maxRotH = rect.height * 0.992; /* taller digits */
       let lo=6, hi=Math.max(24, rect.height*2.2);
       const fits = (px)=>{
