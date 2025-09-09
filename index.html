@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-<title>Improv Timer v23</title>
+<title>Improv Timer v24</title>
 <style>
   :root{
     --blue:#3aa8ff;   /* segment 1 (Blue) */
@@ -22,6 +22,7 @@
     height:100%;margin:0;background:var(--bg);color:var(--fg);
     font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif;
     overflow:hidden;
+    -webkit-tap-highlight-color: transparent;
   }
 
   .app{position:relative;height:100%;width:100%;display:flex;flex-direction:column;}
@@ -49,7 +50,7 @@
     transition:opacity .12s linear;
   }
 
-  /* OVERTIME vertical ribbon (full height on the left) — shows "OVER" then "TIME" in that order */
+  /* OVERTIME vertical ribbon — “OVER” / “TIME” (full height) */
   .overtime-ribbon{
     position:absolute;left:10px;top:0;bottom:0;z-index:4;
     width:58px;display:none;align-items:center;justify-content:center;
@@ -60,23 +61,19 @@
   }
   .overtime .overtime-ribbon{ display:flex; }
   .overtime-text{
-    /* Use vertical-lr so reading order is OVER (top) then TIME (bottom) */
     writing-mode:vertical-lr; text-orientation:upright;
     white-space:pre-line; /* honor newline */
     font-weight:900;font-size:14px;letter-spacing:0.8px;color:#fff;text-shadow:0 0 8px rgba(0,0,0,.5);
     user-select:none;
   }
 
-  /* Minute blink mask in final (pre-end) segment */
+  /* Final minute blink mask (pre-end only) */
   .blink-mask{position:absolute;inset:0;background:#000;pointer-events:none;z-index:3;display:none;}
-
-  /* (We no longer use the red/black full-frame blink in overtime; background turns solid yellow) */
-  .end-blink{display:none;}
 
   /* ===== BOTTOM PROGRESS BAND ONLY ===== */
   .band{
     position:relative;min-height:var(--band-min);max-height:var(--band-max);
-    height:clamp(var(--band-min),15vh,var(--band-max)); /* smaller to give the clock more room */
+    height:clamp(var(--band-min),15vh,var(--band-max));
     overflow:hidden;z-index:1;
   }
   .segments{position:absolute;inset:0;display:flex;pointer-events:none;}
@@ -120,7 +117,7 @@
   .bar .spacer{flex:1}
   .bar strong#totalShow{font-size:1.25em}
 
-  /* Start slab (left 20%) — button fills vertically */
+  /* Start slab */
   .start-slab{position:absolute;left:0;top:0;bottom:0;width:20%;display:flex;align-items:stretch;justify-content:center;
     background:rgba(58,168,255,0.07);border-right:1px solid rgba(255,255,255,.12);cursor:pointer;user-select:none;z-index:6;}
   .start-slab button{width:92%;height:100%;max-width:420px;border-radius:0;
@@ -136,6 +133,18 @@
   .card-header{position:sticky;top:0;z-index:2;background:linear-gradient(180deg,#0b0b0b 85%,rgba(11,11,11,0) 100%);
     padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.08);display:flex;align-items:flex-end;justify-content:space-between;gap:8px;}
   .card-title{margin:0;font-size:16px;font-weight:800;}
+
+  /* Button color lock (no blue flash on press) */
+  .btn, .btn:focus, .btn:active { outline: none; }
+  .btn{border:1px solid rgba(255,255,255,.18);background:#101010;color:var(--fg);padding:10px 14px;border-radius:12px;font-weight:800;cursor:pointer;font-size:14px;user-select:none;}
+  .btn.primary{background:var(--blue);color:#002235}
+  .btn.warn{background:#1a0000;color:#ffb3b3;border-color:#551111}
+  .btn.neutral{background:#0f0f0f}
+  .btn:active{transform:scale(0.98)}
+  .btn.primary:active{background:var(--blue)}
+  .btn.warn:active{background:#1a0000}
+  .btn.neutral:active{background:#0f0f0f}
+
   .status{display:flex;align-items:center;gap:8px;font-variant-numeric:tabular-nums;background:rgba(255,255,255,.06);
     padding:4px 8px;border-radius:10px;border:1px solid rgba(255,255,255,.12);font-size:12px;}
   .status .dot{width:9px;height:9px;border-radius:50%;}
@@ -145,6 +154,7 @@
   .mini-time{font-weight:900;letter-spacing:0.02em}
   .mini-total{opacity:.8}
   .mini-divider{opacity:.6}
+
   .card-body{padding:10px 12px;overflow:auto;}
   .row{display:flex;gap:10px;align-items:stretch;flex-wrap:wrap;}
   .row + .row{margin-top:10px;}
@@ -165,6 +175,22 @@
   .val{padding:6px 8px;border-radius:10px;min-width:56px;text-align:center;font-variant-numeric:tabular-nums;background:#0b0b0b;border:1px dashed rgba(255,255,255,.24);color:#fff;}
   .btnDelete{padding:6px 8px;border-radius:10px;font-weight:800;cursor:pointer;border:1px solid #522;background:#1a0000;color:#ffb3b3;font-size:12px}
 
+  /* Preview clock block for landscape (4th quadrant) */
+  .group.preview{
+    display:none;
+    align-items:center;justify-content:center;text-align:center;
+    gap:8px;
+  }
+  .previewTitle{font-weight:800;font-size:13px;opacity:.9;margin:0 0 6px 0}
+  .previewClock{
+    font-weight:900;font-variant-numeric:tabular-nums;
+    font-size:clamp(22px,5vw,48px);
+    line-height:1; letter-spacing:0.02em;
+    background:#000;border-radius:10px;padding:10px 12px;display:inline-block;
+    border:1px solid rgba(255,255,255,.14);
+  }
+  .previewState{margin-top:6px;font-size:12px;opacity:.85}
+
   .card-footer{
     position:sticky;bottom:0;z-index:2;
     background:linear-gradient(0deg,#0b0b0b 82%,rgba(11,11,11,0) 100%);
@@ -172,12 +198,8 @@
     padding:8px 12px calc(8px + env(safe-area-inset-bottom)) 12px;
     display:flex;align-items:center;gap:8px;flex-wrap:wrap;
   }
-  .btn{border:1px solid rgba(255,255,255,.18);background:#101010;color:var(--fg);padding:10px 14px;border-radius:12px;font-weight:800;cursor:pointer;font-size:14px}
-  .btn.primary{background:var(--blue);color:#002235}
-  .btn.warn{background:#1a0000;color:#ffb3b3;border-color:#551111}
-  .btn.neutral{background:#0f0f0f}
 
-  /* Portrait-specific tightening for Settings */
+  /* Portrait-specific tightening */
   @media (orientation:portrait) {
     .card{width:96vw;max-height:90vh;}
     .row{gap:8px}
@@ -187,6 +209,22 @@
     .btnStep{min-width:34px;padding:6px 6px;font-size:12px}
     .val{min-width:50px}
     .btnDelete{font-size:11.5px;padding:6px 8px}
+    .group.preview{display:none;} /* no preview block in portrait */
+  }
+
+  /* Landscape: grid 2×2 with preview at 4th quadrant (to the right of Red) */
+  @media (orientation:landscape) {
+    .card-body .row{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      grid-auto-rows: minmax(140px, auto);
+      gap:10px;
+    }
+    .group.preview{display:flex;flex-direction:column;}
+    .group.blue  { order:1; }
+    .group.green { order:2; }
+    .group.red   { order:3; }
+    .group.preview { order:4; }
   }
 
   /* Watermark – main only first 10s; hidden in settings */
@@ -197,7 +235,7 @@
 </head>
 <body>
   <div class="app" id="app">
-    <div class="stamp" id="stamp">08.09.2025 - v23 - Jimmy James</div>
+    <div class="stamp" id="stamp">08.09.2025 - v24 - Jimmy James</div>
 
     <div class="field" id="field">
       <!-- CLOCK -->
@@ -220,16 +258,11 @@ TIME</span></div>
           <div class="marker blue"  id="lineB"></div>
           <div class="marker green" id="lineG"></div>
           <div class="marker end"   id="lineEnd"></div>
-          <!-- Labels (blue/green only) -->
           <div class="marker-label blue"  id="labelB">4:00</div>
           <div class="marker-label green" id="labelG">14:00</div>
         </div>
-        <!-- Total time (white) bottom-right -->
         <div class="total-overlay" id="totalOverlay">20:00</div>
       </div>
-
-      <!-- (old end-blink removed; we use solid yellow background + clock blinks in OT) -->
-      <div class="end-blink" id="endBlink"></div>
 
       <!-- Big left START slab -->
       <div class="start-slab" id="startSlab">
@@ -315,6 +348,13 @@ TIME</span></div>
                 <button class="btnStep" data-seg="r" data-kind="s" data-d="1">+5</button>
               </div>
             </div>
+
+            <!-- 4. Preview clock (landscape only) -->
+            <div class="group preview" id="previewBlock">
+              <h4 class="previewTitle">Preview</h4>
+              <div class="previewClock" id="previewClock">0:00</div>
+              <div class="previewState" id="previewState">Paused</div>
+            </div>
           </div>
         </div>
 
@@ -368,6 +408,9 @@ TIME</span></div>
   const miniStatus = document.getElementById('miniStatus');
   const miniClock = document.getElementById('miniClock');
   const miniTotal = document.getElementById('miniTotal');
+
+  const previewClock = document.getElementById('previewClock');
+  const previewState = document.getElementById('previewState');
 
   const bMinVal = document.getElementById('bMinVal');
   const bSecOnly = document.getElementById('bSecOnly');
@@ -470,19 +513,18 @@ TIME</span></div>
       return;
     }
     const bPct = (bSec/totalSec)*100;
-    const gPct = ((bSec+gSec)/totalSec)*100;
+    the_gPct = ((bSec+gSec)/totalSec)*100;
 
     lineB.style.left   = `calc(${bPct}% - 1px)`;
-    lineG.style.left   = `calc(${gPct}% - 1px)`;
+    lineG.style.left   = `calc(${the_gPct}% - 1px)`;
     lineEnd.style.left = `calc(100% - 2.5px)`; // exact end
 
-    // Labels placed to the LEFT of their lines (blue/green)
     labelB.textContent  = fmtSS(bSec);
     labelG.textContent  = fmtSS(bSec+gSec);
     labelB.style.left   = `calc(${bPct}% - 24px)`;
-    labelG.style.left   = `calc(${gPct}% - 32px)`;
+    labelG.style.left   = `calc(${the_gPct}% - 32px)`;
 
-    totalOverlay.textContent = fmtSS(totalSec); // single white total
+    totalOverlay.textContent = fmtSS(totalSec);
   }
 
   function refreshInfoBar(){
@@ -495,12 +537,19 @@ TIME</span></div>
     miniTotal.textContent = `/ ${totalTxt}`;
   }
 
-  /* ---------- Mini status in settings header ---------- */
+  /* ---------- Mini status + Preview in settings ---------- */
   function setMiniStatus(){
-    miniClock.textContent = fmtSS(elapsed);
-    if (elapsed === 0 && !running){ miniStatus.textContent='Reset'; miniDot.className='dot reset'; }
-    else if (running){ miniStatus.textContent='Running'; miniDot.className='dot run'; }
-    else { miniStatus.textContent='Paused'; miniDot.className='dot pause'; }
+    const txt = fmtSS(elapsed);
+    miniClock.textContent = txt;
+    previewClock.textContent = txt;
+
+    let st;
+    if (elapsed === 0 && !running){ st='Reset'; miniDot.className='dot reset'; }
+    else if (running){ st='Running'; miniDot.className='dot run'; }
+    else { st='Paused'; miniDot.className='dot pause'; }
+
+    miniStatus.textContent = st;
+    previewState.textContent = st;
   }
 
   /* ---------- Segments fill ---------- */
@@ -523,7 +572,7 @@ TIME</span></div>
     if (running || totalSec === 0) return;
     running = true;
     startSlab.classList.add('start-hidden');
-    clockStrip.style.background = '#000'; // ensure normal background on start
+    clockStrip.style.background = '#000';
     lastTick = performance.now();
     setMiniStatus();
     updateStampVisibility();
@@ -561,10 +610,8 @@ TIME</span></div>
       elapsed += add;                    // keep counting past total
       lastTick += add*1000;
 
-      // MAIN CLOCK shows absolute elapsed (e.g., 20:05)
       clock.textContent = fmtSS(elapsed);
 
-      // Color by segment; OVERTIME => BLUE digits
       updateDigitColor();
       fitClockThrottled();
 
@@ -572,11 +619,9 @@ TIME</span></div>
       handleFinalBlinkScheduling();      // only before end
 
       if (elapsed >= totalSec){
-        // OVERTIME visuals: solid bright yellow background
         clockStrip.style.background = getComputedStyle(document.documentElement).getPropertyValue('--overtime-yellow') || '#ffeb00';
         root.classList.add('overtime');
 
-        // Blink the CLOCK (digits) 3× every minute after total
         const minutesOver = Math.floor((elapsed - totalSec) / 60);
         const atBoundary = ((elapsed - totalSec) % 60 === 0);
         if (atBoundary && minutesOver !== otBlinkMinuteDone){
@@ -584,7 +629,6 @@ TIME</span></div>
           blinkClockDigits(3);
         }
       } else {
-        // normal running
         clockStrip.style.background = '#000';
         root.classList.remove('overtime');
       }
@@ -597,7 +641,7 @@ TIME</span></div>
 
   /* ---------- Final (RED) segment minute blinks (only before end) ---------- */
   function inFinalSegment(){
-    const finalStart = bSec + gSec; // red starts after blue+green
+    const finalStart = bSec + gSec;
     return elapsed >= finalStart && elapsed < totalSec;
   }
   const sleep = (ms)=>new Promise(r=>setTimeout(r,ms));
@@ -612,9 +656,9 @@ TIME</span></div>
     blinking = false;
   }
   async function handleFinalBlinkScheduling(){
-    if (!inFinalSegment()) return;  // never blink minutes after end
+    if (!inFinalSegment()) return;
     const finalStart = bSec + gSec;
-    const remaining = totalSec - elapsed; // seconds left in red
+    const remaining = totalSec - elapsed;
     const wholeMinLeft = Math.ceil(remaining / 60);
     const atBoundary = ((elapsed - finalStart) % 60 === 0);
     if (atBoundary && [3,2,1].includes(wholeMinLeft) && !scheduledFinalBlinks.has(wholeMinLeft)){
@@ -623,7 +667,7 @@ TIME</span></div>
     }
   }
 
-  /* ---------- Overtime: blink the CLOCK digits n× (0.5s off / 0.5s on) ---------- */
+  /* ---------- Overtime: blink the CLOCK digits n× ---------- */
   async function blinkClockDigits(n){
     for (let i=0;i<n;i++){
       clock.style.opacity = '0';  await sleep(500);
@@ -646,12 +690,13 @@ TIME</span></div>
 
   // Make the whole start slab clickable (not just the button)
   startSlab.addEventListener('click', ()=>{ if (!running) { closeSettings(); start(); } });
+  document.getElementById('startBtn').addEventListener('click', ()=>{ closeSettings(); start(); });
 
   // Settings open/close
   const openSettings = ()=>{
     sheet.classList.add('open');
     setMiniStatus();
-    updateStampVisibility(); // hide watermark while settings is open
+    updateStampVisibility();
   };
   const closeSettings = ()=>{
     sheet.classList.remove('open');
@@ -662,8 +707,6 @@ TIME</span></div>
   pauseBtn.addEventListener('click', ()=>{ pause(); setMiniStatus(); });
   returnBtn.addEventListener('click', ()=>{ saveTimes(); closeSettings(); });
   resetBtn.addEventListener('click', ()=>{ pause(); resetElapsed(); });
-
-  // Default (restore 4/10/6)
   defaultBtn.addEventListener('click', ()=>{
     bSec = DEFAULT_B; gSec = DEFAULT_G; rSec = DEFAULT_R;
     updateDisplayVals(); saveTimes();
@@ -686,9 +729,6 @@ TIME</span></div>
       setTimeout(()=> deleteAllBtn.textContent = 'Delete All (×3)', 900);
     }
   });
-
-  // Start slab button (kept for keyboard / accessibility)
-  startBtn.addEventListener('click', ()=>{ closeSettings(); start(); });
 
   /* ---------- Save times / update UI ---------- */
   function saveTimes(){
