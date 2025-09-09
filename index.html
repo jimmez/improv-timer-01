@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-<title>Improv Timer v18</title>
+<title>Improv Timer v18.1</title>
 <style>
   :root{
     --blue:#3aa8ff;
@@ -95,7 +95,7 @@
   }
   .marker-label.blue{color:var(--blue)}
   .marker-label.green{color:var(--green)}
-  /* (end label intentionally removed in v18) */
+  /* (end label intentionally removed) */
 
   /* Total time (only here, bottom-right under the bar) */
   .total-overlay{
@@ -181,7 +181,7 @@
 </head>
 <body>
   <div class="app" id="app">
-    <div class="stamp" id="stamp">08.09.2025 - v18 - Jimmy James</div>
+    <div class="stamp" id="stamp">08.09.2025 - v18.1 - Jimmy James</div>
 
     <div class="field" id="field">
       <!-- CLOCK -->
@@ -505,6 +505,7 @@
     running = true;
     startSlab.classList.add('start-hidden');
     endBlink.style.display = 'none';
+    root.classList.remove('overtime');
     lastTick = performance.now();
     setMiniStatus();
     updateStampVisibility();
@@ -525,7 +526,7 @@
     endBlink.style.display = 'none';
     root.classList.remove('overtime');
     clock.textContent = fmtSS(0);
-    updateDigitColor();
+    clock.style.color = getComputedStyle(document.documentElement).getPropertyValue('--blue');
     updateSegments(0);
     setMiniStatus();
     fitClockThrottled();
@@ -541,15 +542,21 @@
       elapsed += add;                    // keep counting past total
       lastTick += add*1000;
 
-      // Clock shows absolute elapsed (20:01, 20:02, …)
+      // MAIN CLOCK updates continuously (even after total)
       clock.textContent = fmtSS(elapsed);
-      updateDigitColor();
+
+      // Color by segment; force BLACK after total to ensure readability on red blink
+      if (elapsed >= totalSec){
+        clock.style.color = '#000'; // hard-set black overtime digits for Android/WebView reliability
+      } else {
+        updateDigitColor();
+      }
+
       fitClockThrottled();
-
       updateSegments(elapsed);
-      handleFinalBlinkScheduling();
+      handleFinalBlinkScheduling();      // only active before end
 
-      // Overtime visuals after total
+      // Overtime visuals after total (MAIN PAGE)
       if (elapsed >= totalSec){
         endBlink.style.display = 'block';   // blink red/black behind digits
         root.classList.add('overtime');     // shows badge
@@ -652,11 +659,19 @@
     totalSec = bSec + gSec + rSec;
     refreshInfoBar();
     scheduledFinalBlinks.clear();
-    updateDigitColor();
+    // Keep showing absolute elapsed and correct colors/visuals
+    clock.textContent = fmtSS(elapsed);
+    if (elapsed >= totalSec){
+      clock.style.color = '#000';
+      endBlink.style.display = 'block';
+      root.classList.add('overtime');
+    } else {
+      updateDigitColor();
+      endBlink.style.display = 'none';
+      root.classList.remove('overtime');
+    }
     updateSegments(elapsed);
     positionMarkers();
-    // keep absolute elapsed shown
-    clock.textContent = fmtSS(elapsed);
     setMiniStatus();
     fitClockThrottled();
     updateStampVisibility();
@@ -679,7 +694,9 @@
     else if (seg==='r') rSec = clamp(rSec + delta*step);
     updateDisplayVals();
     totalSec = bSec + gSec + rSec;
-    refreshInfoBar(); positionMarkers(); updateSegments(elapsed); updateDigitColor(); setMiniStatus();
+    refreshInfoBar(); positionMarkers(); updateSegments(elapsed);
+    if (elapsed >= totalSec) clock.style.color = '#000'; else updateDigitColor();
+    setMiniStatus();
   }
   document.querySelectorAll('.btnStep').forEach(btn=>{
     btn.addEventListener('click', ()=>{
