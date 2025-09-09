@@ -3,13 +3,12 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-<title>Improv Timer v18.1</title>
+<title>Improv Timer v20</title>
 <style>
   :root{
     --blue:#3aa8ff;
     --green:#25d366;
     --red:#ff3b00;
-    --after:#000000;  /* digits AFTER TOTAL: black */
 
     --bg:#000;
     --fg:#fff;
@@ -31,9 +30,9 @@
     display:grid;grid-template-rows:1fr auto;grid-template-columns:100%;
   }
 
-  /* ===== CLOCK (always black under digits) ===== */
+  /* ===== CLOCK (always black strip under digits) ===== */
   .clock-strip{
-    position:relative;background:#000;z-index:2; /* ABOVE end-blink so digits remain visible */
+    position:relative;background:#000;z-index:2; /* ABOVE end-blink so digits stay visible */
     display:flex;align-items:center;justify-content:center;user-select:none;
   }
   .time-rot{transform-origin:center;}
@@ -43,7 +42,7 @@
   .time{
     display:block;line-height:0.9;font-weight:900;letter-spacing:0.01em;white-space:nowrap;
     text-shadow:0 0 22px rgba(0,0,0,.7);
-    color:var(--blue); /* Blue→Green→Red, then black after total */
+    color:var(--blue); /* changes with segment; overtime forces BLUE */
     font-size:10vw; /* auto-fitted by JS */
   }
 
@@ -59,10 +58,10 @@
   }
   .overtime .overtime-badge{ display:inline-flex; }
 
-  /* Minute blink mask in final segment */
+  /* Minute blink mask in final (pre-end) segment */
   .blink-mask{position:absolute;inset:0;background:#000;pointer-events:none;z-index:3;display:none;}
 
-  /* End blink behind the clock so black digits show on red frames */
+  /* End blink behind the clock so digits show on red frames */
   .end-blink{
     position:absolute;inset:0;pointer-events:none;z-index:0;
     background:var(--bg);
@@ -85,7 +84,7 @@
   .marker{position:absolute;top:0;bottom:0;width:2px;}
   .marker.blue{background:var(--blue)}
   .marker.green{background:var(--green)}
-  .marker.end{background:var(--red);width:5px;} /* thick end line */
+  .marker.end{background:var(--red);width:5px;} /* thicker end line */
 
   .marker-label{
     position:absolute;bottom:6px;transform:translateX(-8px);
@@ -95,7 +94,7 @@
   }
   .marker-label.blue{color:var(--blue)}
   .marker-label.green{color:var(--green)}
-  /* (end label intentionally removed) */
+  /* (no end label by request) */
 
   /* Total time (only here, bottom-right under the bar) */
   .total-overlay{
@@ -181,7 +180,7 @@
 </head>
 <body>
   <div class="app" id="app">
-    <div class="stamp" id="stamp">08.09.2025 - v18.1 - Jimmy James</div>
+    <div class="stamp" id="stamp">08.09.2025 - v20 - Jimmy James</div>
 
     <div class="field" id="field">
       <!-- CLOCK -->
@@ -205,7 +204,6 @@
           <!-- Labels (blue/green only) -->
           <div class="marker-label blue"  id="labelB">4:00</div>
           <div class="marker-label green" id="labelG">14:00</div>
-          <!-- (end label intentionally removed) -->
         </div>
         <!-- Total time (white) bottom-right -->
         <div class="total-overlay" id="totalOverlay">20:00</div>
@@ -431,14 +429,14 @@
     return `${m}:${s.toString().padStart(2,'0')}`;
   }
 
-  /* ---------- Digit color per segment; AFTER total -> black ---------- */
+  /* ---------- Digit color per segment; OVERTIME -> BLUE ---------- */
   function getVar(name){ return getComputedStyle(document.documentElement).getPropertyValue(name); }
   function updateDigitColor(){
     const bEnd = bSec, gEnd = bSec + gSec;
     if (elapsed < bEnd)          clock.style.color = getVar('--blue');
     else if (elapsed < gEnd)     clock.style.color = getVar('--green');
     else if (elapsed < totalSec) clock.style.color = getVar('--red');
-    else                         clock.style.color = getVar('--after'); // black after total
+    else                         clock.style.color = getVar('--blue'); // overtime = BLUE digits
   }
 
   /* ---------- Markers & labels ---------- */
@@ -526,7 +524,7 @@
     endBlink.style.display = 'none';
     root.classList.remove('overtime');
     clock.textContent = fmtSS(0);
-    clock.style.color = getComputedStyle(document.documentElement).getPropertyValue('--blue');
+    updateDigitColor();
     updateSegments(0);
     setMiniStatus();
     fitClockThrottled();
@@ -542,19 +540,15 @@
       elapsed += add;                    // keep counting past total
       lastTick += add*1000;
 
-      // MAIN CLOCK updates continuously (even after total)
+      // MAIN CLOCK shows absolute elapsed (e.g., 20:05)
       clock.textContent = fmtSS(elapsed);
 
-      // Color by segment; force BLACK after total to ensure readability on red blink
-      if (elapsed >= totalSec){
-        clock.style.color = '#000'; // hard-set black overtime digits for Android/WebView reliability
-      } else {
-        updateDigitColor();
-      }
-
+      // Color by segment; OVERTIME => BLUE digits
+      updateDigitColor();
       fitClockThrottled();
+
       updateSegments(elapsed);
-      handleFinalBlinkScheduling();      // only active before end
+      handleFinalBlinkScheduling();      // only before end
 
       // Overtime visuals after total (MAIN PAGE)
       if (elapsed >= totalSec){
@@ -659,19 +653,17 @@
     totalSec = bSec + gSec + rSec;
     refreshInfoBar();
     scheduledFinalBlinks.clear();
-    // Keep showing absolute elapsed and correct colors/visuals
     clock.textContent = fmtSS(elapsed);
+    updateDigitColor();
+    updateSegments(elapsed);
+    positionMarkers();
     if (elapsed >= totalSec){
-      clock.style.color = '#000';
       endBlink.style.display = 'block';
       root.classList.add('overtime');
     } else {
-      updateDigitColor();
       endBlink.style.display = 'none';
       root.classList.remove('overtime');
     }
-    updateSegments(elapsed);
-    positionMarkers();
     setMiniStatus();
     fitClockThrottled();
     updateStampVisibility();
@@ -694,9 +686,7 @@
     else if (seg==='r') rSec = clamp(rSec + delta*step);
     updateDisplayVals();
     totalSec = bSec + gSec + rSec;
-    refreshInfoBar(); positionMarkers(); updateSegments(elapsed);
-    if (elapsed >= totalSec) clock.style.color = '#000'; else updateDigitColor();
-    setMiniStatus();
+    refreshInfoBar(); positionMarkers(); updateSegments(elapsed); updateDigitColor(); setMiniStatus();
   }
   document.querySelectorAll('.btnStep').forEach(btn=>{
     btn.addEventListener('click', ()=>{
