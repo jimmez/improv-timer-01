@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-<title>Improv Timer v28</title>
+<title>Improv Timer v29</title>
 <style>
   :root{
-    --blue:#3aa8ff;    /* seg: Blue   */
-    --green:#25d366;   /* seg: Green  */
-    --red:#ff3b00;     /* seg: Red    */
-    --yellow:#ffff33;  /* seg: Yellow (slightly softer than OT bg) */
+    --blue:#3aa8ff;    /* Blue segment */
+    --green:#25d366;   /* Green segment + 04:00 marker */
+    --yellow:#ffff33;  /* Yellow segment + 14:00 marker */
+    --red:#ff3b00;     /* Red segment + 17:00 marker + end line */
 
     --bg:#000;
     --fg:#fff;
@@ -59,31 +59,32 @@
   .overtime-text{writing-mode:vertical-lr;text-orientation:upright;white-space:pre-line;font-weight:900;font-size:14px;letter-spacing:.8px;color:#fff;text-shadow:0 0 8px rgba(0,0,0,.5);}
   .blink-mask{position:absolute;inset:0;background:#000;pointer-events:none;z-index:3;display:none;}
 
-  /* ===== BOTTOM PROGRESS BAND (with 4 segments) ===== */
+  /* ===== BOTTOM PROGRESS BAND (Blue→Green→Yellow→Red) ===== */
   .band{position:relative;min-height:var(--band-min);max-height:var(--band-max);height:clamp(var(--band-min),15vh,var(--band-max));overflow:hidden;z-index:1;}
   .segments{position:absolute;inset:0;display:flex;pointer-events:none;}
   .seg{height:100%;width:0}
   .seg.blue{background:var(--blue)}
   .seg.green{background:var(--green)}
-  .seg.red{background:var(--red)}
   .seg.yellow{background:var(--yellow)}
+  .seg.red{background:var(--red)}
 
   .markers{position:absolute;inset:0;pointer-events:none;}
   .marker{position:absolute;top:0;bottom:0;width:2px;}
-  .marker.blue{background:var(--blue)}
-  .marker.green{background:var(--green)}
-  .marker.yellow{background:var(--yellow)}
-  .marker.end{background:var(--red);width:5px;} /* thick red end line stays */
+  /* marker colors per your spec */
+  .marker.m04{background:var(--green);}  /* 04:00 line */
+  .marker.m14{background:var(--yellow);} /* 14:00 line */
+  .marker.m17{background:var(--red);}    /* 17:00 line */
+  .marker.end{background:var(--red);width:5px;} /* 20:00 thick end */
 
   .marker-label{
-    position:absolute;bottom:6px;transform:translateX(-8px);
+    position:absolute;bottom:6px;transform:translateX(6px); /* >>> to the RIGHT of the line */
     font-size:12px;font-weight:800;font-variant-numeric:tabular-nums;
     padding:2px 6px;border-radius:6px;white-space:nowrap;
     background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.12);
   }
-  .marker-label.blue{color:var(--blue)}
-  .marker-label.green{color:var(--green)}
-  .marker-label.yellow{color:var(--yellow)}
+  .marker-label.g{color:var(--green)}  /* 04:00 */
+  .marker-label.y{color:var(--yellow)} /* 14:00 */
+  .marker-label.r{color:var(--red)}    /* 17:00 */
 
   /* Bottom info bar (total only here) */
   .bar{flex:0 0 auto;padding:10px 14px;display:flex;align-items:center;gap:10px;
@@ -91,7 +92,7 @@
     font-size:clamp(12px,2.4vw,18px);z-index:5;}
   .pill{padding:6px 10px;border:1px solid rgba(255,255,255,.18);border-radius:999px;display:inline-flex;align-items:center;gap:8px;white-space:nowrap;}
   .dot{width:10px;height:10px;border-radius:50%;display:inline-block;}
-  .dot.blue{background:var(--blue)} .dot.green{background:var(--green)} .dot.red{background:var(--red)} .dot.yellow{background:var(--yellow)}
+  .dot.blue{background:var(--blue)} .dot.green{background:var(--green)} .dot.yellow{background:var(--yellow)} .dot.red{background:var(--red)}
   .bar .spacer{flex:1}
   .bar strong#totalShow{font-size:1.25em}
 
@@ -134,8 +135,8 @@
   .group.themed .btnStep{border:1px solid rgba(255,255,255,.24);color:#000;background:#e6e6e6;}
   .group.blue  { --theme: var(--blue); }
   .group.green { --theme: var(--green); }
-  .group.red   { --theme: var(--red); }
   .group.yellow{ --theme: var(--yellow); }
+  .group.red   { --theme: var(--red); }
 
   .counter{display:flex;align-items:center;gap:6px;margin-top:6px;flex-wrap:nowrap;}
   .lbl{opacity:.8;font-size:11px;min-width:64px}
@@ -170,7 +171,8 @@
       gap:10px;
     }
     .group.preview{display:flex;flex-direction:column;}
-    .group.blue{order:1} .group.green{order:2} .group.red{order:3} .group.yellow{order:4} .group.preview{order:5}
+    /* Settings order: Blue, Green, Yellow, Red, Preview */
+    .group.blue{order:1} .group.green{order:2} .group.yellow{order:3} .group.red{order:4} .group.preview{order:5}
   }
 
   /* Watermark */
@@ -180,7 +182,7 @@
 </head>
 <body>
   <div class="app" id="app">
-    <div class="stamp" id="stamp">08.09.2025 - v28 - Jimmy James</div>
+    <div class="stamp" id="stamp">08.09.2025 - v29 - Jimmy James</div>
 
     <div class="field" id="field">
       <!-- CLOCK -->
@@ -191,22 +193,24 @@ TIME</span></div>
         <div class="blink-mask" id="blinkMask"></div>
       </div>
 
-      <!-- BOTTOM progress band (with 4 segments) -->
+      <!-- BOTTOM progress band -->
       <div class="band" id="bandBottom">
         <div class="segments">
           <div class="seg blue"   id="segB"></div>
           <div class="seg green"  id="segG"></div>
-          <div class="seg red"    id="segR"></div>
           <div class="seg yellow" id="segY"></div>
+          <div class="seg red"    id="segR"></div>
         </div>
         <div class="markers">
-          <div class="marker blue"   id="lineB"></div>
-          <div class="marker green"  id="lineG"></div>
-          <div class="marker yellow" id="lineY"></div>
-          <div class="marker end"    id="lineEnd"></div>
-          <div class="marker-label blue"   id="labelB">4:00</div>
-          <div class="marker-label green"  id="labelG">14:00</div>
-          <div class="marker-label yellow" id="labelY">17:00</div>
+          <!-- Thin markers @ 04:00 (green), 14:00 (yellow), 17:00 (red), thick end @ 20:00 (red) -->
+          <div class="marker m04" id="line04"></div>
+          <div class="marker m14" id="line14"></div>
+          <div class="marker m17" id="line17"></div>
+          <div class="marker end" id="lineEnd"></div>
+          <!-- Labels to the RIGHT of their lines -->
+          <div class="marker-label g" id="label04">4:00</div>
+          <div class="marker-label y" id="label14">14:00</div>
+          <div class="marker-label r" id="label17">17:00</div>
         </div>
       </div>
 
@@ -220,8 +224,8 @@ TIME</span></div>
     <div class="bar">
       <span class="pill"><span class="dot blue"></span><span id="bShow">4:00</span></span>
       <span class="pill"><span class="dot green"></span><span id="gShow">10:00</span></span>
-      <span class="pill"><span class="dot red"></span><span id="rShow">3:00</span></span>
       <span class="pill"><span class="dot yellow"></span><span id="yShow">3:00</span></span>
+      <span class="pill"><span class="dot red"></span><span id="rShow">3:00</span></span>
       <div class="spacer"></div>
       <span class="pill" title="Total time"><strong id="totalShow">20:00</strong></span>
     </div>
@@ -278,27 +282,9 @@ TIME</span></div>
               </div>
             </div>
 
-            <!-- 3. Red -->
-            <div class="group themed red">
-              <h4><span>3.</span> <span class="dot red"></span> <strong>Red</strong></h4>
-              <div class="counter">
-                <span class="lbl">Minutes</span>
-                <button class="btnStep" data-seg="r" data-kind="m" data-d="-1">−</button>
-                <span class="val" id="rMinVal">3</span>
-                <button class="btnStep" data-seg="r" data-kind="m" data-d="1">+</button>
-                <button class="btnDelete" data-del="r">Delete</button>
-              </div>
-              <div class="counter">
-                <span class="lbl">Seconds (×5)</span>
-                <button class="btnStep" data-seg="r" data-kind="s" data-d="-1">−5</button>
-                <span class="val" id="rSecOnly">00</span>
-                <button class="btnStep" data-seg="r" data-kind="s" data-d="1">+5</button>
-              </div>
-            </div>
-
-            <!-- 4. Yellow -->
+            <!-- 3. Yellow -->
             <div class="group themed yellow">
-              <h4><span>4.</span> <span class="dot yellow"></span> <strong>Yellow</strong></h4>
+              <h4><span>3.</span> <span class="dot yellow"></span> <strong>Yellow</strong></h4>
               <div class="counter">
                 <span class="lbl">Minutes</span>
                 <button class="btnStep" data-seg="y" data-kind="m" data-d="-1">−</button>
@@ -314,7 +300,25 @@ TIME</span></div>
               </div>
             </div>
 
-            <!-- 5. Preview (landscape only) -->
+            <!-- 4. Red -->
+            <div class="group themed red">
+              <h4><span>4.</span> <span class="dot red"></span> <strong>Red</strong></h4>
+              <div class="counter">
+                <span class="lbl">Minutes</span>
+                <button class="btnStep" data-seg="r" data-kind="m" data-d="-1">−</button>
+                <span class="val" id="rMinVal">3</span>
+                <button class="btnStep" data-seg="r" data-kind="m" data-d="1">+</button>
+                <button class="btnDelete" data-del="r">Delete</button>
+              </div>
+              <div class="counter">
+                <span class="lbl">Seconds (×5)</span>
+                <button class="btnStep" data-seg="r" data-kind="s" data-d="-1">−5</button>
+                <span class="val" id="rSecOnly">00</span>
+                <button class="btnStep" data-seg="r" data-kind="s" data-d="1">+5</button>
+              </div>
+            </div>
+
+            <!-- Preview -->
             <div class="group preview" id="previewBlock">
               <h4 class="previewTitle">Preview</h4>
               <div class="previewClock" id="previewClock">0:00</div>
@@ -342,27 +346,27 @@ TIME</span></div>
   const clockStrip = document.getElementById('clockStrip');
   const blinkMask = document.getElementById('blinkMask');
 
-  // Segments
+  // Segments (Blue → Green → Yellow → Red)
   const segB = document.getElementById('segB');
   const segG = document.getElementById('segG');
-  const segR = document.getElementById('segR');
   const segY = document.getElementById('segY');
+  const segR = document.getElementById('segR');
 
-  // Markers
-  const lineB = document.getElementById('lineB');
-  const lineG = document.getElementById('lineG');
-  const lineY = document.getElementById('lineY');
+  // Marker lines & labels (04 green, 14 yellow, 17 red, end red)
+  const line04 = document.getElementById('line04');
+  const line14 = document.getElementById('line14');
+  const line17 = document.getElementById('line17');
   const lineEnd = document.getElementById('lineEnd');
 
-  const labelB = document.getElementById('labelB');
-  const labelG = document.getElementById('labelG');
-  const labelY = document.getElementById('labelY');
+  const label04 = document.getElementById('label04');
+  const label14 = document.getElementById('label14');
+  const label17 = document.getElementById('label17');
 
   // Bottom info bar
   const bShow = document.getElementById('bShow');
   const gShow = document.getElementById('gShow');
-  const rShow = document.getElementById('rShow');
   const yShow = document.getElementById('yShow');
+  const rShow = document.getElementById('rShow');
   const totalShow = document.getElementById('totalShow');
 
   // Start slab
@@ -387,10 +391,10 @@ TIME</span></div>
 
   const stamp = document.getElementById('stamp');
 
-  // Defaults: Blue 4:00, Green 10:00, Red 3:00, Yellow 3:00
-  const DEFAULT_B = 4*60, DEFAULT_G = 10*60, DEFAULT_R = 3*60, DEFAULT_Y = 3*60;
-  let bSec = DEFAULT_B, gSec = DEFAULT_G, rSec = DEFAULT_R, ySec = DEFAULT_Y;
-  let totalSec = bSec + gSec + rSec + ySec;
+  // Defaults: Blue 4:00, Green 10:00, Yellow 3:00, Red 3:00 (total 20:00)
+  const DEFAULT_B = 4*60, DEFAULT_G = 10*60, DEFAULT_Y = 3*60, DEFAULT_R = 3*60;
+  let bSec = DEFAULT_B, gSec = DEFAULT_G, ySec = DEFAULT_Y, rSec = DEFAULT_R;
+  let totalSec = bSec + gSec + ySec + rSec;
 
   let elapsed = 0; // keeps counting into overtime
   let running = false;
@@ -401,7 +405,7 @@ TIME</span></div>
   let blinking = false;
   let otBlinkMinuteDone = -1;
 
-  // Watermark auto-hide
+  // Watermark auto-hide after 10s
   setTimeout(()=> stamp.classList.add('hidden'), 10000);
   function updateStampVisibility(){ if (sheet.classList.contains('open')) stamp.classList.add('hidden'); }
 
@@ -447,66 +451,67 @@ TIME</span></div>
   function fmtSS(t){ const m=Math.floor(t/60), s=Math.floor(t%60); return `${m}:${s.toString().padStart(2,'0')}`; }
   function getVar(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
 
-  /* Digit color per segment (Yellow segment uses yellow digits); OT uses strong blue */
+  /* Digit color per segment; OT uses strong blue */
   function updateDigitColor(){
     const bEnd = bSec;
     const gEnd = bSec + gSec;
-    const rEnd = bSec + gSec + rSec;
+    const yEnd = bSec + gSec + ySec;
     if (elapsed < bEnd)          clock.style.color = getVar('--blue');
     else if (elapsed < gEnd)     clock.style.color = getVar('--green');
-    else if (elapsed < rEnd)     clock.style.color = getVar('--red');
-    else if (elapsed < totalSec) clock.style.color = getVar('--yellow');
-    else                         clock.style.color = getVar('--overtime-blue');
+    else if (elapsed < yEnd)     clock.style.color = getVar('--yellow');
+    else if (elapsed < totalSec) clock.style.color = getVar('--red');   // final segment
+    else                         clock.style.color = getVar('--overtime-blue'); // overtime
   }
 
-  /* Markers & labels (4 checkpoints: 4:00, 14:00, 17:00, End) */
+  /* Markers & labels (to the RIGHT of each line) */
   function positionMarkers(){
     if (totalSec <= 0){
-      lineB.style.left='0%'; lineG.style.left='0%'; lineY.style.left='0%'; lineEnd.style.left='calc(100% - 2.5px)';
-      labelB.textContent=labelG.textContent=labelY.textContent='0:00';
+      line04.style.left='0%'; line14.style.left='0%'; line17.style.left='0%'; lineEnd.style.left='calc(100% - 2.5px)';
+      label04.textContent=label14.textContent=label17.textContent='0:00';
       return;
     }
-    const pB = (bSec/totalSec)*100;
-    const pG = ((bSec+gSec)/totalSec)*100;
-    const pY = ((bSec+gSec+rSec)/totalSec)*100;
+    const p04 = (bSec/totalSec)*100;                 // 04:00
+    const p14 = ((bSec+gSec)/totalSec)*100;          // 14:00
+    const p17 = ((bSec+gSec+ySec)/totalSec)*100;     // 17:00
 
-    lineB.style.left = `calc(${pB}% - 1px)`;
-    lineG.style.left = `calc(${pG}% - 1px)`;
-    lineY.style.left = `calc(${pY}% - 1px)`;
+    line04.style.left = `calc(${p04}% - 1px)`;
+    line14.style.left = `calc(${p14}% - 1px)`;
+    line17.style.left = `calc(${p17}% - 1px)`;
     lineEnd.style.left = `calc(100% - 2.5px)`;
 
-    labelB.textContent = fmtSS(bSec);
-    labelG.textContent = fmtSS(bSec+gSec);
-    labelY.textContent = fmtSS(bSec+gSec+rSec);
+    label04.textContent = fmtSS(bSec);
+    label14.textContent = fmtSS(bSec+gSec);
+    label17.textContent = fmtSS(bSec+gSec+ySec);
 
-    labelB.style.left = `calc(${pB}% - 24px)`;
-    labelG.style.left = `calc(${pG}% - 32px)`;
-    labelY.style.left = `calc(${pY}% - 24px)`;
+    /* labels to the RIGHT of the line */
+    label04.style.left = `calc(${p04}% + 6px)`;
+    label14.style.left = `calc(${p14}% + 6px)`;
+    label17.style.left = `calc(${p17}% + 6px)`;
 
     // Bottom bar info
     bShow.textContent = fmtSS(bSec);
     gShow.textContent = fmtSS(gSec);
-    rShow.textContent = fmtSS(rSec);
     yShow.textContent = fmtSS(ySec);
+    rShow.textContent = fmtSS(rSec);
     totalShow.textContent = fmtSS(totalSec);
     miniTotal.textContent = `/ ${fmtSS(totalSec)}`;
   }
 
-  /* Segment fill widths for 4 segments */
+  /* Segment fill widths for 4 segments in the new order */
   function updateSegments(sec){
-    if (totalSec <= 0){ segB.style.width=segG.style.width=segR.style.width=segY.style.width='0%'; return; }
+    if (totalSec <= 0){ segB.style.width=segG.style.width=segY.style.width=segR.style.width='0%'; return; }
     const eff = Math.min(sec, totalSec);
     const pct = (eff/totalSec)*100;
 
     const bPct = (bSec/totalSec)*100;
     const gPct = (gSec/totalSec)*100;
-    const rPct = (rSec/totalSec)*100;
-    const yPct = 100 - bPct - gPct - rPct;
+    const yPct = (ySec/totalSec)*100;
+    const rPct = 100 - bPct - gPct - yPct;
 
     segB.style.width = Math.min(pct, bPct) + '%';
     segG.style.width = Math.min(Math.max(pct - bPct, 0), gPct) + '%';
-    segR.style.width = Math.min(Math.max(pct - bPct - gPct, 0), rPct) + '%';
-    segY.style.width = Math.min(Math.max(pct - bPct - gPct - rPct, 0), yPct) + '%';
+    segY.style.width = Math.min(Math.max(pct - bPct - gPct, 0), yPct) + '%';
+    segR.style.width = Math.min(Math.max(pct - bPct - gPct - yPct, 0), rPct) + '%';
   }
 
   /* Status widgets */
@@ -561,7 +566,7 @@ TIME</span></div>
       clock.textContent = fmtSS(elapsed);
       updateDigitColor(); fitClockThrottled();
       updateSegments(elapsed);
-      handleFinalBlinkScheduling();
+      handleFinalBlinkScheduling(); // handles 17/18/19 blinks in final segment
 
       if (elapsed >= totalSec){
         root.classList.add('overtime');
@@ -570,7 +575,7 @@ TIME</span></div>
         const atBoundary = ((elapsed - totalSec) % 60 === 0);
         if (atBoundary && minutesOver !== otBlinkMinuteDone){
           otBlinkMinuteDone = minutesOver;
-          blinkClockDigits(3);
+          blinkClockDigits(3); // blink digits 3× each minute in OT
         }
       } else {
         root.classList.remove('overtime');
@@ -582,8 +587,8 @@ TIME</span></div>
     rafId = requestAnimationFrame(tick);
   }
 
-  /* Final (now Yellow) segment minute blinks before end */
-  function finalStartSec(){ return bSec + gSec + rSec; } // start of Yellow
+  /* Final (now Red) segment minute blinks BEFORE end: 17:00→3, 18:00→2, 19:00→1 */
+  function finalStartSec(){ return bSec + gSec + ySec; }  // start of Red
   function inFinalSegment(){ return elapsed >= finalStartSec() && elapsed < totalSec; }
   const sleep = (ms)=>new Promise(r=>setTimeout(r,ms));
   async function queueBlinkSequence(n){
@@ -633,7 +638,7 @@ TIME</span></div>
   returnBtn.addEventListener('click', ()=>{ saveTimes(); closeSettings(); });
   resetBtn.addEventListener('click', ()=>{ pause(); resetElapsed(); });
   defaultBtn.addEventListener('click', ()=>{
-    bSec=DEFAULT_B; gSec=DEFAULT_G; rSec=DEFAULT_R; ySec=DEFAULT_Y;
+    bSec=DEFAULT_B; gSec=DEFAULT_G; ySec=DEFAULT_Y; rSec=DEFAULT_R;
     updateDisplayVals(); saveTimes();
   });
 
@@ -644,7 +649,7 @@ TIME</span></div>
     if (delTimer) clearTimeout(delTimer);
     delTimer = setTimeout(()=>{ delTap=0; deleteAllBtn.textContent='Delete All (×3)'; }, 1200);
     if (delTap>=3){
-      delTap=0; bSec=0; gSec=0; rSec=0; ySec=0;
+      delTap=0; bSec=0; gSec=0; ySec=0; rSec=0;
       updateDisplayVals(); saveTimes();
       deleteAllBtn.textContent='Deleted'; setTimeout(()=> deleteAllBtn.textContent='Delete All (×3)', 900);
     }
@@ -652,7 +657,7 @@ TIME</span></div>
 
   /* Save times + UI */
   function saveTimes(){
-    totalSec = bSec + gSec + rSec + ySec;
+    totalSec = bSec + gSec + ySec + rSec;
     scheduledFinalBlinks.clear(); otBlinkMinuteDone=-1;
     clock.textContent = fmtSS(elapsed);
     updateDigitColor(); updateSegments(elapsed); positionMarkers();
@@ -664,24 +669,24 @@ TIME</span></div>
   // Steppers & Delete
   const bMinVal = document.getElementById('bMinVal'), bSecOnly = document.getElementById('bSecOnly');
   const gMinVal = document.getElementById('gMinVal'), gSecOnly = document.getElementById('gSecOnly');
-  const rMinVal = document.getElementById('rMinVal'), rSecOnly = document.getElementById('rSecOnly');
   const yMinVal = document.getElementById('yMinVal'), ySecOnly = document.getElementById('ySecOnly');
+  const rMinVal = document.getElementById('rMinVal'), rSecOnly = document.getElementById('rSecOnly');
 
   function updateDisplayVals(){
     bMinVal.textContent = Math.floor(bSec/60); bSecOnly.textContent = String(bSec%60).padStart(2,'0');
     gMinVal.textContent = Math.floor(gSec/60); gSecOnly.textContent = String(gSec%60).padStart(2,'0');
-    rMinVal.textContent = Math.floor(rSec/60); rSecOnly.textContent = String(rSec%60).padStart(2,'0');
     yMinVal.textContent = Math.floor(ySec/60); ySecOnly.textContent = String(ySec%60).padStart(2,'0');
+    rMinVal.textContent = Math.floor(rSec/60); rSecOnly.textContent = String(rSec%60).padStart(2,'0');
   }
   function adjust(seg, kind, delta){
     const clamp = v => Math.max(0, Math.min(6*60*60, v));
     const step = (kind === 'm') ? 60 : 5;
     if (seg==='b') bSec = clamp(bSec + delta*step);
     if (seg==='g') gSec = clamp(gSec + delta*step);
-    if (seg==='r') rSec = clamp(rSec + delta*step);
     if (seg==='y') ySec = clamp(ySec + delta*step);
+    if (seg==='r') rSec = clamp(rSec + delta*step);
     updateDisplayVals();
-    totalSec = bSec + gSec + rSec + ySec;
+    totalSec = bSec + gSec + ySec + rSec;
     positionMarkers(); updateSegments(elapsed); updateDigitColor(); setMiniStatus();
   }
   document.querySelectorAll('.btnStep').forEach(btn=>{
@@ -692,7 +697,7 @@ TIME</span></div>
   document.querySelectorAll('.btnDelete').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       const which = btn.getAttribute('data-del');
-      if (which==='b') bSec=0; if (which==='g') gSec=0; if (which==='r') rSec=0; if (which==='y') ySec=0;
+      if (which==='b') bSec=0; if (which==='g') gSec=0; if (which==='y') ySec=0; if (which==='r') rSec=0;
       updateDisplayVals(); saveTimes();
     });
   });
