@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-<title>Improv Timer v25</title>
+<title>Improv Timer v27</title>
 <style>
   :root{
     --blue:#3aa8ff;   /* segment 1 (Blue) */
@@ -41,7 +41,7 @@
   /* ===== CLOCK STRIP ===== */
   .clock-strip{
     position:relative;z-index:2;
-    background:#000;                /* normal = black; in OT we set transparent via JS to let yellow show */
+    background:#000;                /* normal = black; in OT we set transparent to let yellow show */
     display:flex;align-items:center;justify-content:center;user-select:none;
     transition:background .15s linear;
   }
@@ -104,14 +104,7 @@
   .marker-label.blue{color:var(--blue)}
   .marker-label.green{color:var(--green)}
 
-  /* Total time (only here, bottom-right under the bar) */
-  .total-overlay{
-    position:absolute;right:10px;bottom:6px;z-index:2;
-    font-weight:900;font-variant-numeric:tabular-nums;
-    font-size:clamp(14px,3.8vw,28px);
-    color:#ffffff;text-shadow:0 0 16px rgba(0,0,0,.6);
-    background:rgba(0,0,0,.35);padding:2px 8px;border-radius:8px;border:1px solid rgba(255,255,255,.12);
-  }
+  /* (Removed the extra total-overlay chip entirely) */
 
   /* Bottom info bar */
   .bar{flex:0 0 auto;padding:10px 14px;display:flex;align-items:center;gap:10px;
@@ -241,7 +234,7 @@
 </head>
 <body>
   <div class="app" id="app">
-    <div class="stamp" id="stamp">08.09.2025 - v25 - Jimmy James</div>
+    <div class="stamp" id="stamp">08.09.2025 - v27 - Jimmy James</div>
 
     <div class="field" id="field">
       <!-- CLOCK -->
@@ -267,8 +260,7 @@ TIME</span></div>
           <div class="marker-label blue"  id="labelB">4:00</div>
           <div class="marker-label green" id="labelG">14:00</div>
         </div>
-        <!-- Total time (white) bottom-right -->
-        <div class="total-overlay" id="totalOverlay">20:00</div>
+        <!-- (Removed the total-overlay chip here) -->
       </div>
 
       <!-- Big left START slab -->
@@ -277,7 +269,7 @@ TIME</span></div>
       </div>
     </div>
 
-    <!-- Bottom info bar -->
+    <!-- Bottom info bar (kept) -->
     <div class="bar">
       <span class="pill"><span class="dot blue"></span><span id="bShow">4:00</span></span>
       <span class="pill"><span class="dot green"></span><span id="gShow">10:00</span></span>
@@ -399,7 +391,6 @@ TIME</span></div>
   const gShow = document.getElementById('gShow');
   const rShow = document.getElementById('rShow');
   const totalShow = document.getElementById('totalShow');
-  const totalOverlay = document.getElementById('totalOverlay');
 
   const startSlab = document.getElementById('startSlab');
   const startBtn = document.getElementById('startBtn');
@@ -507,7 +498,6 @@ TIME</span></div>
       lineB.style.left='0%'; lineG.style.left='0%'; lineEnd.style.left='calc(100% - 2.5px)';
       labelB.textContent='0:00'; labelG.textContent='0:00';
       labelB.style.left='0%'; labelG.style.left='0%';
-      totalOverlay.textContent='0:00';
       return;
     }
     const bPct = (bSec/totalSec)*100;
@@ -521,8 +511,6 @@ TIME</span></div>
     labelG.textContent  = fmtSS(bSec+gSec);
     labelB.style.left   = `calc(${bPct}% - 24px)`;
     labelG.style.left   = `calc(${gPct}% - 32px)`;
-
-    totalOverlay.textContent = fmtSS(totalSec);
   }
 
   function refreshInfoBar(){
@@ -531,7 +519,6 @@ TIME</span></div>
     rShow.textContent = fmtSS(rSec);
     const totalTxt = fmtSS(totalSec);
     totalShow.textContent = totalTxt;
-    totalOverlay.textContent = totalTxt;
     miniTotal.textContent = `/ ${totalTxt}`;
   }
 
@@ -616,7 +603,7 @@ TIME</span></div>
       fitClockThrottled();
 
       updateSegments(elapsed);
-      handleFinalBlinkScheduling();      // only before end
+      handleFinalBlinkScheduling();      // only BEFORE end
 
       if (elapsed >= totalSec){
         // OVERTIME visuals: whole background yellow; digits strong blue; clock strip transparent
