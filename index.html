@@ -3,7 +3,11 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-<title>Improv Timer v31</title>
+<title>Improv Timer v32</title>
+<!-- (Optional) If you later host as a PWA, add a real manifest file for stronger landscape lock when installed:
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#000000">
+-->
 <style>
   :root{
     --blue:#3aa8ff;
@@ -40,7 +44,7 @@
     display:flex;align-items:center;justify-content:center;user-select:none;
     transition:background .15s linear;
   }
-  .time-rot{transform-origin:center;} /* no rotation applied (landscape lock) */
+  .time-rot{transform-origin:center;} /* no rotation applied */
   .time{
     display:block;line-height:.88;font-weight:900;letter-spacing:.005em;white-space:nowrap;
     text-shadow:0 0 22px rgba(0,0,0,.7);
@@ -48,7 +52,7 @@
     font-size:10vw;
     transition:opacity .12s linear,color .12s linear;
   }
-  .overtime-ribbon{position:absolute;left:10px;top:0;bottom:0;z-index:4;width:58px;display:none;align-items:center;justify-content:center;background:rgba(255,0,0,.18);border-left:1px solid rgba(255,0,0,.55);border-right:1px solid rgba(255,255,255,.18);backdrop-filter:blur(1px);}
+  .overtime-ribbon{position:absolute;left:10px;top:0;bottom:0;z-index:4;width:58px;display:none;align-items:center;justify-content:center;background:rgba(255,0,0,0.18);border-left:1px solid rgba(255,0,0,0.55);border-right:1px solid rgba(255,255,255,0.18);backdrop-filter:blur(1px);}
   .overtime .overtime-ribbon{display:flex;}
   .overtime-text{writing-mode:vertical-lr;text-orientation:upright;white-space:pre-line;font-weight:900;font-size:14px;letter-spacing:.8px;color:#fff;text-shadow:0 0 8px rgba(0,0,0,.5);}
   .blink-mask{position:absolute;inset:0;background:#000;pointer-events:none;z-index:3;display:none;}
@@ -64,13 +68,13 @@
 
   .markers{position:absolute;inset:0;pointer-events:none;}
   .marker{position:absolute;top:0;bottom:0;width:2px;}
-  .marker.m04{background:var(--green);}  /* first marker */
-  .marker.m14{background:var(--yellow);} /* second marker */
-  .marker.m17{background:var(--red);}    /* third marker */
-  .marker.end{background:var(--red);width:5px;} /* thick end */
+  .marker.m04{background:var(--green);}  /* 04:00 line */
+  .marker.m14{background:var(--yellow);} /* 14:00 line */
+  .marker.m17{background:var(--red);}    /* 17:00 line */
+  .marker.end{background:var(--red);width:5px;} /* thick end line */
 
   .marker-label{
-    position:absolute;bottom:6px;transform:translateX(6px); /* to the RIGHT of line */
+    position:absolute;bottom:6px;transform:translateX(6px); /* to the RIGHT of the line */
     font-size:12px;font-weight:800;font-variant-numeric:tabular-nums;
     padding:2px 6px;border-radius:6px;white-space:nowrap;
     background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.12);
@@ -89,7 +93,7 @@
   .bar .spacer{flex:1}
   .bar strong#totalShow{font-size:1.25em}
 
-  /* Start slab */
+  /* Start slab (left 20%) */
   .start-slab{position:absolute;left:0;top:0;bottom:0;width:20%;display:flex;align-items:stretch;justify-content:center;background:rgba(58,168,255,0.07);border-right:1px solid rgba(255,255,255,.12);cursor:pointer;user-select:none;z-index:6;}
   .start-slab button{width:92%;height:100%;max-width:420px;border-radius:0;border:2px solid rgba(255,255,255,.28);background:var(--blue);color:#002235;font-weight:900;font-size:clamp(22px,4.2vw,34px);cursor:pointer;}
   .start-hidden{display:none;}
@@ -141,7 +145,7 @@
 
   .card-footer{position:sticky;bottom:0;z-index:2;background:linear-gradient(0deg,#0b0b0b 82%,rgba(11,11,11,0) 100%);border-top:1px solid rgba(255,255,255,.12);padding:8px 12px calc(8px + env(safe-area-inset-bottom)) 12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
 
-  /* Always landscape: we drop portrait-specific rules entirely */
+  /* Always landscape: no portrait rules */
   @media (orientation:landscape){
     .card-body .row{
       display:grid;
@@ -159,7 +163,7 @@
 </head>
 <body>
   <div class="app" id="app">
-    <div class="stamp" id="stamp">08.09.2025 - v31 - Jimmy James</div>
+    <div class="stamp" id="stamp">08.09.2025 - v32 - Jimmy James</div>
 
     <div class="field" id="field">
       <!-- CLOCK -->
@@ -170,7 +174,7 @@ TIME</span></div>
         <div class="blink-mask" id="blinkMask"></div>
       </div>
 
-      <!-- BOTTOM progress band -->
+      <!-- BOTTOM progress band (Blue → Green → Yellow → Red) -->
       <div class="band" id="bandBottom">
         <div class="segments">
           <div class="seg blue"   id="segB"></div>
@@ -205,7 +209,7 @@ TIME</span></div>
       <span class="pill" title="Total time"><strong id="totalShow">20:00</strong></span>
     </div>
 
-    <!-- Settings -->
+    <!-- Settings (triple-tap anywhere) -->
     <div class="sheet" id="sheet">
       <div class="card">
         <div class="card-header">
@@ -302,11 +306,11 @@ TIME</span></div>
           <button class="btn primary" id="returnBtn">Return</button>
           <button class="btn warn" id="resetBtn">Reset</button>
 
-          <!-- Presets -->
+          <!-- Presets: “20” (default), “25”, “9”, “Short” -->
           <button class="btn neutral" id="preset20Btn" title="Blue 4m, Green 10m, Yellow 3m, Red 3m">20</button>
-          <button class="btn neutral" id="preset25Btn" title="Blue 4m, Green 15m, Yellow 3m, Red 3m">25</button>
-          <button class="btn neutral" id="preset9Btn"  title="Blue 2m, Green 4m, Yellow 1m, Red 2m">9</button>
-          <button class="btn neutral" id="presetShortBtn" title="Blue 5s, Green 5s, Yellow 5s, Red 5s">Short</button>
+          <button class="btn neutral" id="preset25Btn" title="0→4m→19m→22m→25m">25</button>
+          <button class="btn neutral" id="preset9Btn"  title="0→2m→6m→7m→9m">9</button>
+          <button class="btn neutral" id="presetShortBtn" title="0→5s→10s→15s→20s">Short</button>
 
           <button class="btn warn" id="deleteAllBtn" title="Press 3× to delete all">Delete All (×3)</button>
         </div>
@@ -328,12 +332,11 @@ TIME</span></div>
   const segY = document.getElementById('segY');
   const segR = document.getElementById('segR');
 
-  // Marker lines & labels
+  // Marker lines/labels
   const line04 = document.getElementById('line04');
   const line14 = document.getElementById('line14');
   const line17 = document.getElementById('line17');
   const lineEnd = document.getElementById('lineEnd');
-
   const label04 = document.getElementById('label04');
   const label14 = document.getElementById('label14');
   const label17 = document.getElementById('label17');
@@ -371,14 +374,14 @@ TIME</span></div>
 
   const stamp = document.getElementById('stamp');
 
-  /* ===== Defaults (20) =====
+  /* ===== Defaults (“20”) =====
      Blue 4:00, Green 10:00, Yellow 3:00, Red 3:00 (20:00 total) */
   const DEFAULT_B = 4*60, DEFAULT_G = 10*60, DEFAULT_Y = 3*60, DEFAULT_R = 3*60;
 
   let bSec = DEFAULT_B, gSec = DEFAULT_G, ySec = DEFAULT_Y, rSec = DEFAULT_R;
   let totalSec = bSec + gSec + ySec + rSec;
 
-  let elapsed = 0; // continues into overtime
+  let elapsed = 0;  // continues into overtime
   let running = false;
   let rafId = null;
   let lastTick = null;
@@ -391,8 +394,27 @@ TIME</span></div>
   setTimeout(()=> stamp.classList.add('hidden'), 10000);
   function updateStampVisibility(){ if (sheet.classList.contains('open')) stamp.classList.add('hidden'); }
 
-  /* ===== LANDSCAPE LOCK =====
-     We *never* add a portrait class and never rotate the digits. */
+  /* ===== LANDSCAPE LOCK / FULLSCREEN (best-effort) ===== */
+  async function requestFullscreenAndLockLandscape(){
+    try{
+      // go fullscreen first (many browsers require this before lock)
+      const el = document.documentElement;
+      if (!document.fullscreenElement && el.requestFullscreen){
+        await el.requestFullscreen();
+      }
+      // attempt orientation lock
+      if (screen.orientation && screen.orientation.lock){
+        await screen.orientation.lock('landscape');
+      }
+    }catch(e){
+      // Ignore if blocked; UI stays horizontally oriented anyway.
+      // console.debug('Fullscreen/orientation lock not available:', e);
+    }
+  }
+  // if user exits fullscreen, we keep running; just refit clock
+  document.addEventListener('fullscreenchange', ()=> fitClockThrottled());
+
+  /* ===== Big clock fit (always landscape layout) ===== */
   function fitClock(){
     const rect = clockStrip.getBoundingClientRect();
     if (rect.width<=0 || rect.height<=0) return;
@@ -419,7 +441,7 @@ TIME</span></div>
     else                         clock.style.color=getVar('--overtime-blue');
   }
 
-  /* Markers/labels (right of the lines) */
+  /* Markers/labels (to the RIGHT of the line) */
   function positionMarkers(){
     if (totalSec<=0){
       line04.style.left=line14.style.left=line17.style.left='0%'; lineEnd.style.left='calc(100% - 2.5px)';
@@ -447,192 +469,4 @@ TIME</span></div>
 
   /* Segment fills */
   function updateSegments(sec){
-    if (totalSec<=0){ segB.style.width=segG.style.width=segY.style.width=segR.style.width='0%'; return; }
-    const eff=Math.min(sec,totalSec), pct=(eff/totalSec)*100;
-    const bPct=(bSec/totalSec)*100, gPct=(gSec/totalSec)*100, yPct=(ySec/totalSec)*100, rPct=100-bPct-gPct-yPct;
-    segB.style.width=Math.min(pct,bPct)+'%';
-    segG.style.width=Math.min(Math.max(pct-bPct,0),gPct)+'%';
-    segY.style.width=Math.min(Math.max(pct-bPct-gPct,0),yPct)+'%';
-    segR.style.width=Math.min(Math.max(pct-bPct-gPct-yPct,0),rPct)+'%';
-  }
-
-  /* Status widgets */
-  function setMiniStatus(){
-    const txt=fmtSS(elapsed); miniClock.textContent=txt; previewClock.textContent=txt;
-    let st; if (elapsed===0 && !running){ st='Reset'; miniDot.className='dot reset'; }
-    else if (running){ st='Running'; miniDot.className='dot run'; }
-    else { st='Paused'; miniDot.className='dot pause'; }
-    miniStatus.textContent=st; previewState.textContent=st;
-  }
-
-  /* Timer control */
-  function start(){ if (running || totalSec===0) return; running=true; startSlab.classList.add('start-hidden'); clockStrip.style.background='#000'; root.classList.remove('overtime'); lastTick=performance.now(); setMiniStatus(); updateStampVisibility(); tick(); }
-  function pause(){ running=false; if (rafId){ cancelAnimationFrame(rafId); rafId=null; } startSlab.classList.remove('start-hidden'); setMiniStatus(); updateStampVisibility(); }
-  function resetElapsed(){
-    elapsed=0; scheduledFinalBlinks.clear(); blinking=false; blinkMask.style.display='none'; otBlinkMinuteDone=-1;
-    clock.style.opacity='1'; clockStrip.style.background='#000'; root.classList.remove('overtime');
-    clock.textContent=fmtSS(0); updateDigitColor(); updateSegments(0); setMiniStatus(); fitClockThrottled(); updateStampVisibility();
-  }
-
-  function tick(now){
-    if (!running) return;
-    if (!now) now=performance.now();
-    const dt=(now-lastTick)/1000;
-    if (dt>=0.25){
-      const add=Math.floor(dt); elapsed+=add; lastTick+=add*1000;
-      clock.textContent=fmtSS(elapsed);
-      updateDigitColor(); fitClockThrottled(); updateSegments(elapsed); handleFinalBlinkScheduling();
-      if (elapsed>=totalSec){
-        root.classList.add('overtime'); clockStrip.style.background='transparent';
-        const minutesOver=Math.floor((elapsed-totalSec)/60), atBoundary=((elapsed-totalSec)%60===0);
-        if (atBoundary && minutesOver!==otBlinkMinuteDone){ otBlinkMinuteDone=minutesOver; blinkClockDigits(3); }
-      } else { root.classList.remove('overtime'); clockStrip.style.background='#000'; }
-      setMiniStatus(); updateStampVisibility();
-    }
-    rafId=requestAnimationFrame(tick);
-  }
-
-  /* Final (Red) segment blinks: 17→6, 18→4, 19→2 (from v30) */
-  function finalStartSec(){ return bSec + gSec + ySec; }
-  function inFinalSegment(){ return elapsed >= finalStartSec() && elapsed < totalSec; }
-  const sleep = ms => new Promise(r=>setTimeout(r,ms));
-  async function queueBlinkSequence(n){
-    while (blinking) await sleep(40);
-    blinking = true;
-    for (let i=0;i<n;i++){ blinkMask.style.display='block'; await sleep(500); blinkMask.style.display='none'; await sleep(500); }
-    blinkMask.style.display='none'; blinking=false;
-  }
-  async function handleFinalBlinkScheduling(){
-    if (!inFinalSegment()) return;
-    const finalStart = finalStartSec();
-    const remaining = totalSec - elapsed;
-    const wholeMinLeft = Math.ceil(remaining / 60);  // 3,2,1
-    const atBoundary = ((elapsed - finalStart) % 60 === 0);
-    if (atBoundary && [3,2,1].includes(wholeMinLeft)){
-      const blinks = wholeMinLeft * 2;               // 6,4,2
-      if (!scheduledFinalBlinks.has(blinks)){
-        scheduledFinalBlinks.add(blinks);
-        await queueBlinkSequence(blinks);
-      }
-    }
-  }
-  async function blinkClockDigits(n){ for (let i=0;i<n;i++){ clock.style.opacity='0'; await sleep(500); clock.style.opacity='1'; await sleep(500); } clock.style.opacity='1'; }
-
-  /* Triple-tap to open settings */
-  let tapCount=0,tapTimer=null;
-  document.addEventListener('pointerdown',()=>{
-    tapCount++; if (tapTimer) clearTimeout(tapTimer);
-    tapTimer=setTimeout(()=>{ tapCount=0; },600);
-    if (tapCount>=3){ tapCount=0; openSettings(); }
-  });
-  startSlab.addEventListener('click',()=>{ if(!running){ closeSettings(); start(); } });
-  startBtn.addEventListener('click',()=>{ closeSettings(); start(); });
-
-  function openSettings(){ sheet.classList.add('open'); setMiniStatus(); updateStampVisibility(); }
-  function closeSettings(){ sheet.classList.remove('open'); updateStampVisibility(); }
-
-  pauseBtn.addEventListener('click',()=>{ pause(); setMiniStatus(); });
-  returnBtn.addEventListener('click',()=>{ saveTimes(); closeSettings(); });
-  resetBtn.addEventListener('click',()=>{ pause(); resetElapsed(); });
-
-  /* ===== Presets ===== */
-  function setFromEndpoints(t1,t2,t3,tEnd){ // endpoints in seconds from 0
-    // Blue = t1-0, Green = t2-t1, Yellow = t3-t2, Red = tEnd-t3
-    bSec = Math.max(0, t1);
-    gSec = Math.max(0, t2 - t1);
-    ySec = Math.max(0, t3 - t2);
-    rSec = Math.max(0, tEnd - t3);
-    updateDisplayVals(); saveTimes();
-  }
-  // 20 (same as default: 4, 14, 17, 20)
-  preset20Btn.addEventListener('click',()=>{
-    setFromEndpoints(4*60, 14*60, 17*60, 20*60);
-  });
-  // 25: 0, 4, 19, 22, 25
-  preset25Btn.addEventListener('click',()=>{
-    setFromEndpoints(4*60, 19*60, 22*60, 25*60);
-  });
-  // 9: 0, 2, 6, 7, 9
-  preset9Btn.addEventListener('click',()=>{
-    setFromEndpoints(2*60, 6*60, 7*60, 9*60);
-  });
-  // Short: 0, 5s, 10s, 15s, 20s
-  presetShortBtn.addEventListener('click',()=>{
-    setFromEndpoints(5, 10, 15, 20);
-  });
-
-  // Delete All (×3)
-  let delTap=0,delTimer=null;
-  deleteAllBtn.addEventListener('click',()=>{
-    delTap++; deleteAllBtn.textContent=`Delete All (${delTap}/3)`;
-    if (delTimer) clearTimeout(delTimer);
-    delTimer=setTimeout(()=>{ delTap=0; deleteAllBtn.textContent='Delete All (×3)'; },1200);
-    if (delTap>=3){
-      delTap=0; bSec=gSec=ySec=rSec=0; updateDisplayVals(); saveTimes();
-      deleteAllBtn.textContent='Deleted'; setTimeout(()=> deleteAllBtn.textContent='Delete All (×3)',900);
-    }
-  });
-
-  function saveTimes(){
-    totalSec=bSec+gSec+ySec+rSec;
-    scheduledFinalBlinks.clear(); otBlinkMinuteDone=-1;
-    clock.textContent=fmtSS(elapsed);
-    updateDigitColor(); updateSegments(elapsed); positionMarkers();
-    if (elapsed>=totalSec){ root.classList.add('overtime'); clockStrip.style.background='transparent'; }
-    else { root.classList.remove('overtime'); clockStrip.style.background='#000'; }
-    setMiniStatus(); fitClockThrottled(); updateStampVisibility();
-  }
-
-  // Steppers & deletes
-  const bMinVal=document.getElementById('bMinVal'), bSecOnly=document.getElementById('bSecOnly');
-  const gMinVal=document.getElementById('gMinVal'), gSecOnly=document.getElementById('gSecOnly');
-  const yMinVal=document.getElementById('yMinVal'), ySecOnly=document.getElementById('ySecOnly');
-  const rMinVal=document.getElementById('rMinVal'), rSecOnly=document.getElementById('rSecOnly');
-
-  function updateDisplayVals(){
-    bMinVal.textContent=Math.floor(bSec/60); bSecOnly.textContent=String(bSec%60).padStart(2,'0');
-    gMinVal.textContent=Math.floor(gSec/60); gSecOnly.textContent=String(gSec%60).padStart(2,'0');
-    yMinVal.textContent=Math.floor(ySec/60); ySecOnly.textContent=String(ySec%60).padStart(2,'0');
-    rMinVal.textContent=Math.floor(rSec/60); rSecOnly.textContent=String(rSec%60).padStart(2,'0');
-  }
-  function adjust(seg,kind,delta){
-    const clamp=v=>Math.max(0,Math.min(6*60*60,v));
-    const step=(kind==='m')?60:5;
-    if(seg==='b') bSec=clamp(bSec+delta*step);
-    if(seg==='g') gSec=clamp(gSec+delta*step);
-    if(seg==='y') ySec=clamp(ySec+delta*step);
-    if(seg==='r') rSec=clamp(rSec+delta*step);
-    updateDisplayVals(); totalSec=bSec+gSec+ySec+rSec;
-    positionMarkers(); updateSegments(elapsed); updateDigitColor(); setMiniStatus();
-  }
-  document.querySelectorAll('.btnStep').forEach(btn=>{
-    btn.addEventListener('click',()=>{ adjust(btn.dataset.seg,btn.dataset.kind,parseInt(btn.dataset.d,10)); });
-  });
-  document.querySelectorAll('.btnDelete').forEach(btn=>{
-    btn.addEventListener('click',()=>{ const w=btn.getAttribute('data-del'); if(w==='b')bSec=0; if(w==='g')gSec=0; if(w==='y')ySec=0; if(w==='r')rSec=0; updateDisplayVals(); saveTimes(); });
-  });
-
-  /* Init (landscape-only fit) */
-  updateDisplayVals();
-  positionMarkers();
-  updateSegments(0);
-  clock.textContent=fmtSS(0);
-  updateDigitColor();
-  fitClock();
-  setMiniStatus();
-
-  window.addEventListener('resize',()=>{ fitClockThrottled(); positionMarkers(); });
-  window.addEventListener('orientationchange',()=>{ fitClockThrottled(); positionMarkers(); });
-
-  // Keyboard helpers
-  window.addEventListener('keydown',e=>{
-    if(e.key===' '){ e.preventDefault(); running?pause():start(); }
-    else if(e.key.toLowerCase()==='s'){ sheet.classList.contains('open')?sheet.classList.remove('open'):sheet.classList.add('open'); updateStampVisibility(); }
-    else if(e.key.toLowerCase()==='r'){ pause(); resetElapsed(); }
-  });
-
-  function throttle(fn,ms){ let last=0,t; return function(){ const now=performance.now(); if(now-last>=ms){ last=now; fn(); } else { clearTimeout(t); t=setTimeout(()=>{ last=performance.now(); fn(); }, ms-(now-last)); } }; }
-})();
-</script>
-</body>
-</html>
+    if (
