@@ -36,7 +36,7 @@
   .app{position:relative;height:100%;width:100%;display:flex;flex-direction:column;}
   .field{position:relative;flex:1 1 auto;display:grid;grid-template-rows:1fr auto;grid-template-columns:100%;}
 
-  /* ===== CLOCK (locked landscape: never rotates) ===== */
+  /* ===== CLOCK (locked landscape look: we don't rotate in portrait) ===== */
   .clock-strip{
     position:relative;z-index:2;background:#000;
     display:flex;align-items:center;justify-content:center;user-select:none;
@@ -72,7 +72,7 @@
   .marker.end{background:var(--red);width:5px;} /* thick end */
 
   .marker-label{
-    position:absolute;bottom:6px;transform:translateX(6px); /* to the RIGHT of line */
+    position:absolute;bottom:6px;transform:translateX(6px); /* to the RIGHT of the line */
     font-size:12px;font-weight:800;font-variant-numeric:tabular-nums;
     padding:2px 6px;border-radius:6px;white-space:nowrap;
     background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.12);
@@ -141,7 +141,7 @@
   .previewClock{font-weight:900;font-variant-numeric:tabular-nums;font-size:clamp(22px,5vw,48px);line-height:1;letter-spacing:.02em;background:#000;border-radius:10px;padding:10px 12px;display:inline-block;border:1px solid rgba(255,255,255,.14);}
   .previewState{margin-top:6px;font-size:12px;opacity:.85}
 
-  /* Always landscape styles – we omit portrait overrides */
+  /* Landscape-only layout (omit portrait overrides) */
   @media (orientation:landscape){
     .card-body .row{
       display:grid;
@@ -307,7 +307,7 @@ TIME</span></div>
           <button class="btn neutral" id="preset25Btn" title="Blue 4m, Green 15m, Yellow 3m, Red 3m">25</button>
           <button class="btn neutral" id="preset9Btn"  title="Blue 2m, Green 4m, Yellow 1m, Red 2m">9</button>
           <button class="btn neutral" id="presetShortBtn" title="Blue 5s, Green 5s, Yellow 5s, Red 5s">Short</button>
-          <button class="btn neutral" id="presetClapBtn" title="Blue 2m, Green 7m, Yellow 8m, Red 0m (End 17:00)">Clap</button>
+          <button class="btn neutral" id="presetClapBtn" title="Blue 2m, Green to 9:00, Yellow to 17:00, Red to 20:00">Clap</button>
 
           <button class="btn warn" id="deleteAllBtn" title="Press 3× to delete all">Delete All (×3)</button>
         </div>
@@ -470,7 +470,7 @@ TIME</span></div>
     try{
       const el = document.documentElement;
       if (!document.fullscreenElement) {
-        if (el.requestFullscreen)          await el.requestFullscreen();
+        if (el.requestFullscreen)            await el.requestFullscreen();
         else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen(); // iOS/WebKit
       }
       if (screen.orientation && screen.orientation.lock){
@@ -590,8 +590,8 @@ TIME</span></div>
   preset9Btn.addEventListener('click',()=> setFromEndpoints(2*60, 6*60, 7*60, 9*60));
   // Short: 0,5s,10s,15s,20s
   presetShortBtn.addEventListener('click',()=> setFromEndpoints(5, 10, 15, 20));
-  // Clap: 0,2m,9m,17m,17m (end at 17:00)
-  presetClapBtn.addEventListener('click',()=> setFromEndpoints(2*60, 9*60, 17*60, 17*60));
+  // Clap (corrected): 0,2m,9m,17m,20m
+  presetClapBtn.addEventListener('click',()=> setFromEndpoints(2*60, 9*60, 17*60, 20*60));
 
   // Delete All (×3)
   let delTap=0,delTimer=null;
