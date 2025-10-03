@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-<title>Improv Timer v35</title>
+<title>Improv Timer v36</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#000000">
 <style>
@@ -36,13 +36,13 @@
   .app{position:relative;height:100%;width:100%;display:flex;flex-direction:column;}
   .field{position:relative;flex:1 1 auto;display:grid;grid-template-rows:1fr auto;grid-template-columns:100%;}
 
-  /* ===== CLOCK (locked landscape look: we don't rotate in portrait) ===== */
+  /* ===== CLOCK (landscape look; no portrait rotation) ===== */
   .clock-strip{
     position:relative;z-index:2;background:#000;
     display:flex;align-items:center;justify-content:center;user-select:none;
     transition:background .15s linear;
   }
-  .time-rot{transform-origin:center;} /* no portrait rotation applied */
+  .time-rot{transform-origin:center;}
   .time{
     display:block;line-height:.88;font-weight:900;letter-spacing:.005em;white-space:nowrap;
     text-shadow:0 0 22px rgba(0,0,0,.7);
@@ -141,7 +141,7 @@
   .previewClock{font-weight:900;font-variant-numeric:tabular-nums;font-size:clamp(22px,5vw,48px);line-height:1;letter-spacing:.02em;background:#000;border-radius:10px;padding:10px 12px;display:inline-block;border:1px solid rgba(255,255,255,.14);}
   .previewState{margin-top:6px;font-size:12px;opacity:.85}
 
-  /* Landscape-only layout (omit portrait overrides) */
+  /* Landscape-only settings grid (omit portrait overrides) */
   @media (orientation:landscape){
     .card-body .row{
       display:grid;
@@ -153,13 +153,25 @@
     .group.blue{order:1} .group.green{order:2} .group.yellow{order:3} .group.red{order:4} .group.preview{order:5}
   }
 
-  .stamp{position:fixed;right:10px;top:8px;z-index:10;font-size:12px;opacity:.85;letter-spacing:.4px;background:rgba(0,0,0,.35);padding:2px 6px;border-radius:8px;border:1px solid rgba(255,255,255,.12);pointer-events:none;}
-  .stamp.hidden{display:none;}
+  /* --- New: Top corners HUD --- */
+  .hud-badge, .hud-clock{
+    position:fixed;z-index:10;display:inline-flex;align-items:center;gap:6px;
+    padding:3px 8px;border-radius:10px;border:1px solid rgba(255,255,255,.12);
+    background:rgba(0,0,0,.35);backdrop-filter:blur(2px);
+    font-weight:900;letter-spacing:.02em;font-variant-numeric:tabular-nums;
+    user-select:none;pointer-events:none;
+  }
+  .hud-badge{ right:10px; top:8px; font-size:12px; }
+  .hud-clock{ left:10px; top:8px; font-size:14px; color:#fff; }
+
 </style>
 </head>
 <body>
   <div class="app" id="app">
-    <div class="stamp" id="stamp">08.09.2025 - v35 - Jimmy James</div>
+    <!-- Top-left current time (24h) -->
+    <div class="hud-clock" id="nowClock">00:00</div>
+    <!-- Top-right version badge that follows stopwatch color -->
+    <div class="hud-badge" id="versionBadge">v36</div>
 
     <div class="field" id="field">
       <!-- CLOCK -->
@@ -346,6 +358,10 @@ TIME</span></div>
   const rShow = document.getElementById('rShow');
   const totalShow = document.getElementById('totalShow');
 
+  // HUD
+  const nowClock = document.getElementById('nowClock');
+  const versionBadge = document.getElementById('versionBadge');
+
   // Start slab
   const startSlab = document.getElementById('startSlab');
   const startBtn = document.getElementById('startBtn');
@@ -371,8 +387,6 @@ TIME</span></div>
   const previewClock = document.getElementById('previewClock');
   const previewState = document.getElementById('previewState');
 
-  const stamp = document.getElementById('stamp');
-
   /* ===== Defaults (20) ===== */
   const DEFAULT_B = 4*60, DEFAULT_G = 10*60, DEFAULT_Y = 3*60, DEFAULT_R = 3*60;
 
@@ -387,10 +401,6 @@ TIME</span></div>
   let scheduledFinalBlinks = new Set();
   let blinking = false;
   let otBlinkMinuteDone = -1;
-
-  // Watermark auto-hide after 10s
-  setTimeout(()=> stamp.classList.add('hidden'), 10000);
-  function updateStampVisibility(){ if (sheet.classList.contains('open')) stamp.classList.add('hidden'); }
 
   /* LANDSCAPE-ONLY FIT (no portrait rotation) */
   function fitClock(){
@@ -407,16 +417,20 @@ TIME</span></div>
   const fitClockThrottled = throttle(()=>{ fitClock(); }, 50);
 
   function fmtSS(t){ const m=Math.floor(t/60), s=Math.floor(t%60); return `${m}:${s.toString().padStart(2,'0')}`; }
+  function fmtNow24(d){ const hh=String(d.getHours()).padStart(2,'0'); const mm=String(d.getMinutes()).padStart(2,'0'); return `${hh}:${mm}`; }
   function getVar(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
 
-  /* Digit color per segment; OT uses strong blue */
+  /* Digit color per segment; OT uses strong blue. Also drives version badge color. */
   function updateDigitColor(){
     const bEnd=bSec, gEnd=bSec+gSec, yEnd=bSec+gSec+ySec;
-    if (elapsed < bEnd)          clock.style.color=getVar('--blue');
-    else if (elapsed < gEnd)     clock.style.color=getVar('--green');
-    else if (elapsed < yEnd)     clock.style.color=getVar('--yellow');
-    else if (elapsed < totalSec) clock.style.color=getVar('--red');     // final segment
-    else                         clock.style.color=getVar('--overtime-blue'); // overtime
+    let col;
+    if (elapsed < bEnd)          col=getVar('--blue');
+    else if (elapsed < gEnd)     col=getVar('--green');
+    else if (elapsed < yEnd)     col=getVar('--yellow');
+    else if (elapsed < totalSec) col=getVar('--red');
+    else                         col=getVar('--overtime-blue');
+    clock.style.color = col;
+    versionBadge.style.color = col; // match stopwatch color
   }
 
   /* Markers/labels (right of the lines) */
@@ -476,9 +490,7 @@ TIME</span></div>
       if (screen.orientation && screen.orientation.lock){
         await screen.orientation.lock('landscape');
       }
-    }catch(e){
-      /* ignore if denied */
-    }
+    }catch(e){ /* ignore */ }
   }
 
   /* Timer control */
@@ -489,19 +501,19 @@ TIME</span></div>
     clockStrip.style.background='#000';
     root.classList.remove('overtime');
     lastTick=performance.now();
-    setMiniStatus(); updateStampVisibility();
+    setMiniStatus();
     tick();
   }
   function pause(){
     running=false;
     if (rafId){ cancelAnimationFrame(rafId); rafId=null; }
     startSlab.classList.remove('start-hidden');
-    setMiniStatus(); updateStampVisibility();
+    setMiniStatus();
   }
   function resetElapsed(){
     elapsed=0; scheduledFinalBlinks.clear(); blinking=false; blinkMask.style.display='none'; otBlinkMinuteDone=-1;
     clock.style.opacity='1'; clockStrip.style.background='#000'; root.classList.remove('overtime');
-    clock.textContent=fmtSS(0); updateDigitColor(); updateSegments(0); setMiniStatus(); fitClockThrottled(); updateStampVisibility();
+    clock.textContent=fmtSS(0); updateDigitColor(); updateSegments(0); setMiniStatus(); fitClockThrottled();
   }
 
   function tick(now){
@@ -517,7 +529,7 @@ TIME</span></div>
         const minutesOver=Math.floor((elapsed-totalSec)/60), atBoundary=((elapsed-totalSec)%60===0);
         if (atBoundary && minutesOver!==otBlinkMinuteDone){ otBlinkMinuteDone=minutesOver; blinkClockDigits(3); }
       } else { root.classList.remove('overtime'); clockStrip.style.background='#000'; }
-      setMiniStatus(); updateStampVisibility();
+      setMiniStatus();
     }
     rafId=requestAnimationFrame(tick);
   }
@@ -562,13 +574,14 @@ TIME</span></div>
       closeSettings(); start();
     }
   });
+  const startBtn = document.getElementById('startBtn');
   startBtn.addEventListener('click', async ()=>{
     await goFullscreenAndLockLandscape();
     closeSettings(); start();
   });
 
-  function openSettings(){ sheet.classList.add('open'); setMiniStatus(); updateStampVisibility(); }
-  function closeSettings(){ sheet.classList.remove('open'); updateStampVisibility(); }
+  function openSettings(){ sheet.classList.add('open'); setMiniStatus(); }
+  function closeSettings(){ sheet.classList.remove('open'); }
 
   pauseBtn.addEventListener('click',()=>{ pause(); setMiniStatus(); });
   returnBtn.addEventListener('click',()=>{ saveTimes(); closeSettings(); });
@@ -590,7 +603,7 @@ TIME</span></div>
   preset9Btn.addEventListener('click',()=> setFromEndpoints(2*60, 6*60, 7*60, 9*60));
   // Short: 0,5s,10s,15s,20s
   presetShortBtn.addEventListener('click',()=> setFromEndpoints(5, 10, 15, 20));
-  // Clap (corrected): 0,2m,9m,17m,20m
+  // Clap: 0,2m,9m,17m,20m
   presetClapBtn.addEventListener('click',()=> setFromEndpoints(2*60, 9*60, 17*60, 20*60));
 
   // Delete All (×3)
@@ -612,7 +625,7 @@ TIME</span></div>
     updateDigitColor(); updateSegments(elapsed); positionMarkers();
     if (elapsed>=totalSec){ root.classList.add('overtime'); clockStrip.style.background='transparent'; }
     else { root.classList.remove('overtime'); clockStrip.style.background='#000'; }
-    setMiniStatus(); fitClockThrottled(); updateStampVisibility();
+    setMiniStatus(); fitClockThrottled();
   }
 
   // Steppers & deletes
@@ -644,8 +657,15 @@ TIME</span></div>
     btn.addEventListener('click',()=>{ const w=btn.getAttribute('data-del'); if(w==='b')bSec=0; if(w==='g')gSec=0; if(w==='y')ySec=0; if(w==='r')rSec=0; updateDisplayVals(); saveTimes(); });
   });
 
+  /* ===== HUD: current time (24h) updater ===== */
+  function refreshNowClock(){
+    nowClock.textContent = fmtNow24(new Date());
+  }
+  refreshNowClock();
+  // Update every 10s (lightweight; keeps minute fresh)
+  setInterval(refreshNowClock, 10000);
+
   /* Init */
-  updateDisplayVals();
   positionMarkers();
   updateSegments(0);
   clock.textContent=fmtSS(0);
@@ -659,7 +679,7 @@ TIME</span></div>
   // Keyboard helpers
   window.addEventListener('keydown',e=>{
     if(e.key===' '){ e.preventDefault(); running?pause():start(); }
-    else if(e.key.toLowerCase()==='s'){ sheet.classList.contains('open')?sheet.classList.remove('open'):sheet.classList.add('open'); updateStampVisibility(); }
+    else if(e.key.toLowerCase()==='s'){ sheet.classList.toggle('open'); }
     else if(e.key.toLowerCase()==='r'){ pause(); resetElapsed(); }
   });
 
