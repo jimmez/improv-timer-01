@@ -47,4 +47,142 @@ html,body{
 }
 button{cursor:pointer;}
 #hudClock{
-  position:fixed;to
+  position:fixed;top:8px;left:10px;font-size:14px;
+  background:rgba(0,0,0,0.4);padding:3px 6px;border-radius:6px;
+  font-weight:bold;
+}
+#version{
+  position:fixed;top:8px;right:10px;font-size:12px;
+  background:rgba(0,0,0,0.4);padding:3px 6px;border-radius:6px;
+  font-weight:bold;
+}
+#watermark{
+  position:fixed;bottom:6px;left:50%;transform:translateX(-50%);
+  opacity:1;font-size:12px;transition:opacity 1s linear;
+}
+</style>
+</head>
+<body>
+<div id="container">
+  <div id="hudClock">00:00</div>
+  <div id="version">v37</div>
+  <div id="clock">0:00</div>
+  <div id="bar">
+    <div class="segment blue" id="blueSeg"></div>
+    <div class="segment green" id="greenSeg"></div>
+    <div class="segment yellow" id="yellowSeg"></div>
+    <div class="segment red" id="redSeg"></div>
+
+    <div class="marker g" id="m4"></div>
+    <div class="marker-label g" id="l4">4:00</div>
+
+    <div class="marker y" id="m14"></div>
+    <div class="marker-label y" id="l14">14:00</div>
+
+    <div class="marker r" id="m17"></div>
+    <div class="marker-label r" id="l17">17:00</div>
+
+    <div class="marker end" id="m20"></div>
+  </div>
+  <button id="startBtn">START</button>
+</div>
+<div id="watermark">Jimmy James - 03.10.2025</div>
+
+<script>
+let segments=[4*60,10*60,3*60,3*60]; // blue, green, yellow, red
+let total=segments.reduce((a,b)=>a+b,0);
+let elapsed=0, running=false, raf=null, last=null;
+
+const clock=document.getElementById('clock');
+const blue=document.getElementById('blueSeg');
+const green=document.getElementById('greenSeg');
+const yellow=document.getElementById('yellowSeg');
+const red=document.getElementById('redSeg');
+const startBtn=document.getElementById('startBtn');
+const hudClock=document.getElementById('hudClock');
+const version=document.getElementById('version');
+const watermark=document.getElementById('watermark');
+
+function fmt(t){let m=Math.floor(t/60),s=t%60;return m+":"+String(s).padStart(2,"0");}
+
+function updateMarkers(){
+  const w=window.innerWidth;
+  const p1=(segments[0]/total)*w;
+  const p2=((segments[0]+segments[1])/total)*w;
+  const p3=((segments[0]+segments[1]+segments[2])/total)*w;
+  document.getElementById('m4').style.left=(p1-1)+"px";
+  document.getElementById('l4').style.left=(p1+5)+"px";
+  document.getElementById('m14').style.left=(p2-1)+"px";
+  document.getElementById('l14').style.left=(p2+5)+"px";
+  document.getElementById('m17').style.left=(p3-1)+"px";
+  document.getElementById('l17').style.left=(p3+5)+"px";
+  document.getElementById('m20').style.left=(w-3)+"px";
+}
+
+function updateBar(){
+  const p=elapsed/total;
+  const w=window.innerWidth;
+  const px=p*w;
+  const p1=(segments[0]/total)*w;
+  const p2=((segments[0]+segments[1])/total)*w;
+  const p3=((segments[0]+segments[1]+segments[2])/total)*w;
+  blue.style.width=Math.min(px,p1)+"px";
+  green.style.width=Math.min(Math.max(px-p1,0),p2-p1)+"px";
+  yellow.style.width=Math.min(Math.max(px-p2,0),p3-p2)+"px";
+  red.style.width=Math.min(Math.max(px-p3,0),w-p3)+"px";
+}
+
+function updateHudClock(){
+  const d=new Date();
+  const hh=String(d.getHours()).padStart(2,"0");
+  const mm=String(d.getMinutes()).padStart(2,"0");
+  hudClock.textContent=hh+":"+mm;
+}
+setInterval(updateHudClock,10000);
+updateHudClock();
+
+function colorForTime(t){
+  if(t<segments[0]) return "#3aa8ff";
+  else if(t<segments[0]+segments[1]) return "#25d366";
+  else if(t<segments[0]+segments[1]+segments[2]) return "#ffff33";
+  else return "#ff3b00";
+}
+
+function tick(now){
+  if(!running)return;
+  if(!last) last=now;
+  const dt=(now-last)/1000;
+  if(dt>=1){
+    elapsed+=Math.floor(dt);
+    last=now;
+    clock.textContent=fmt(elapsed);
+    updateBar();
+    const color=colorForTime(elapsed);
+    clock.style.color=color;
+    version.style.color=color;
+    if(elapsed>=total){
+      document.body.style.background="yellow";
+      clock.style.color="#0044ff";
+    } else {
+      document.body.style.background="black";
+    }
+  }
+  raf=requestAnimationFrame(tick);
+}
+
+startBtn.addEventListener('click',()=>{
+  if(running)return;
+  running=true;
+  startBtn.style.display="none";
+  last=performance.now();
+  tick(last);
+});
+
+window.addEventListener('resize',updateMarkers);
+updateMarkers();
+
+// Watermark fade out
+setTimeout(()=>{watermark.style.opacity="0";},5000);
+</script>
+</body>
+</html>
