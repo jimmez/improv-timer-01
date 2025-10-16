@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-<title>Improv Timer v38</title>
+<title>Improv Timer v40</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#000000">
 <style>
@@ -55,7 +55,7 @@
   .overtime-text{writing-mode:vertical-lr;text-orientation:upright;white-space:pre-line;font-weight:900;font-size:14px;letter-spacing:.8px;color:#fff;text-shadow:0 0 8px rgba(0,0,0,.5);}
   .blink-mask{position:absolute;inset:0;background:#000;pointer-events:none;z-index:3;display:none;}
 
-  /* ===== BOTTOM PROGRESS (Blue→Green→Yellow→Red) ===== */
+  /* ===== BOTTOM PROGRESS (Blueâ†’Greenâ†’Yellowâ†’Red) ===== */
   .band{position:relative;min-height:var(--band-min);max-height:var(--band-max);height:clamp(var(--band-min),15vh,var(--band-max));overflow:hidden;z-index:1;}
   .segments{position:absolute;inset:0;display:flex;pointer-events:none;}
   .seg{height:100%;width:0}
@@ -91,12 +91,27 @@
   .bar .spacer{flex:1}
   .bar strong#totalShow{font-size:1.25em}
 
-  /* Start slab */
-  .start-slab{position:absolute;left:0;top:0;bottom:0;width:20%;display:flex;align-items:stretch;justify-content:center;background:rgba(58,168,255,0.07);border-right:1px solid rgba(255,255,255,.12);cursor:pointer;user-select:none;z-index:6;}
-  .start-slab button{width:92%;height:100%;max-width:420px;border-radius:0;border:2px solid rgba(255,255,255,.28);background:var(--blue);color:#002235;font-weight:900;font-size:clamp(22px,4.2vw,34px);cursor:pointer;}
-  .start-hidden{display:none;}
+  /* ===== State overlay (Ready / Pause) ===== */
+  .state-overlay{
+    position:absolute;inset:0;z-index:6;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    background:rgba(0,0,0,.28);backdrop-filter:blur(1px);
+  }
+  .state-overlay.hidden{display:none}
+  .state-label{
+    font-weight:1000;letter-spacing:.04em;font-size:clamp(26px,7vw,88px);text-transform:uppercase;
+    text-shadow:0 0 18px rgba(0,0,0,.6);
+  }
+  .state-controls{
+    display:flex;gap:10px;margin-top:18px;flex-wrap:wrap;justify-content:center;
+  }
+  .hud-tip{
+    position:absolute;left:50%;bottom:14px;transform:translateX(-50%);
+    font-size:12px;opacity:.85;padding:4px 10px;border-radius:999px;
+    background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.12);
+    user-select:none;
+  }
 
-  /* ===== Settings ===== */
+  /* ===== Settings / Preset sheet reuse ===== */
   .sheet{position:fixed;inset:0;background:rgba(0,0,0,.66);display:none;align-items:center;justify-content:center;z-index:11;}
   .sheet.open{display:flex}
   .card{width:min(980px,94vw);max-height:92vh;background:#0b0b0b;color:var(--fg);border:1px solid rgba(255,255,255,.12);border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.6);padding:0;display:flex;flex-direction:column;overflow:hidden;}
@@ -179,10 +194,10 @@
     <!-- Top-left current time (24h) -->
     <div class="hud-clock" id="nowClock">00:00</div>
     <!-- Top-right version badge that matches stopwatch color -->
-    <div class="hud-badge" id="versionBadge">v38</div>
+    <div class="hud-badge" id="versionBadge">v40</div>
 
     <!-- Watermark: 5s after load -->
-    <div class="wm" id="wm">Jimmy James – 03.10.2025</div>
+    <div class="wm" id="wm">Jimmy James â€“ 03.10.2025</div>
 
     <div class="field" id="field">
       <!-- CLOCK -->
@@ -212,9 +227,14 @@ TIME</span></div>
         </div>
       </div>
 
-      <!-- START slab -->
-      <div class="start-slab" id="startSlab">
-        <button id="startBtn">START</button>
+      <!-- READY / PAUSE overlay + controls -->
+      <div class="state-overlay" id="stateOverlay" aria-hidden="false">
+        <div class="state-label" id="stateLabel">READY</div>
+        <div class="state-controls">
+          <button class="btn neutral" id="presetBtn">Presets</button>
+          <button class="btn warn" id="resetBtn2" style="display:none">Reset</button>
+        </div>
+        <div class="hud-tip" id="tapTip">Tap anywhere to start Â· Space toggles</div>
       </div>
     </div>
 
@@ -228,7 +248,7 @@ TIME</span></div>
       <span class="pill" title="Total time"><strong id="totalShow">20:00</strong></span>
     </div>
 
-    <!-- Settings -->
+    <!-- Settings (Edit page) -->
     <div class="sheet" id="sheet">
       <div class="card">
         <div class="card-header">
@@ -236,7 +256,7 @@ TIME</span></div>
           <div class="status" id="statusBox">
             <span class="dot pause" id="miniDot"></span>
             <span id="miniStatus">Paused</span>
-            <span class="mini-divider">·</span>
+            <span class="mini-divider">Â·</span>
             <span class="mini-time" id="miniClock">0:00</span>
             <span class="mini-total" id="miniTotal">/ 20:00</span>
           </div>
@@ -248,14 +268,14 @@ TIME</span></div>
               <h4><span>1.</span> <span class="dot blue"></span> <strong>Blue</strong></h4>
               <div class="counter">
                 <span class="lbl">Minutes</span>
-                <button class="btnStep" data-seg="b" data-kind="m" data-d="-1">−</button>
+                <button class="btnStep" data-seg="b" data-kind="m" data-d="-1">â€“</button>
                 <span class="val" id="bMinVal">4</span>
                 <button class="btnStep" data-seg="b" data-kind="m" data-d="1">+</button>
                 <button class="btnDelete" data-del="b">Delete</button>
               </div>
               <div class="counter">
-                <span class="lbl">Seconds (×5)</span>
-                <button class="btnStep" data-seg="b" data-kind="s" data-d="-1">−5</button>
+                <span class="lbl">Seconds (Ã—5)</span>
+                <button class="btnStep" data-seg="b" data-kind="s" data-d="-1">â€“5</button>
                 <span class="val" id="bSecOnly">00</span>
                 <button class="btnStep" data-seg="b" data-kind="s" data-d="1">+5</button>
               </div>
@@ -265,14 +285,14 @@ TIME</span></div>
               <h4><span>2.</span> <span class="dot green"></span> <strong>Green</strong></h4>
               <div class="counter">
                 <span class="lbl">Minutes</span>
-                <button class="btnStep" data-seg="g" data-kind="m" data-d="-1">−</button>
+                <button class="btnStep" data-seg="g" data-kind="m" data-d="-1">â€“</button>
                 <span class="val" id="gMinVal">10</span>
                 <button class="btnStep" data-seg="g" data-kind="m" data-d="1">+</button>
                 <button class="btnDelete" data-del="g">Delete</button>
               </div>
               <div class="counter">
-                <span class="lbl">Seconds (×5)</span>
-                <button class="btnStep" data-seg="g" data-kind="s" data-d="-1">−5</button>
+                <span class="lbl">Seconds (Ã—5)</span>
+                <button class="btnStep" data-seg="g" data-kind="s" data-d="-1">â€“5</button>
                 <span class="val" id="gSecOnly">00</span>
                 <button class="btnStep" data-seg="g" data-kind="s" data-d="1">+5</button>
               </div>
@@ -282,14 +302,14 @@ TIME</span></div>
               <h4><span>3.</span> <span class="dot yellow"></span> <strong>Yellow</strong></h4>
               <div class="counter">
                 <span class="lbl">Minutes</span>
-                <button class="btnStep" data-seg="y" data-kind="m" data-d="-1">−</button>
+                <button class="btnStep" data-seg="y" data-kind="m" data-d="-1">â€“</button>
                 <span class="val" id="yMinVal">3</span>
                 <button class="btnStep" data-seg="y" data-kind="m" data-d="1">+</button>
                 <button class="btnDelete" data-del="y">Delete</button>
               </div>
               <div class="counter">
-                <span class="lbl">Seconds (×5)</span>
-                <button class="btnStep" data-seg="y" data-kind="s" data-d="-1">−5</button>
+                <span class="lbl">Seconds (Ã—5)</span>
+                <button class="btnStep" data-seg="y" data-kind="s" data-d="-1">â€“5</button>
                 <span class="val" id="ySecOnly">00</span>
                 <button class="btnStep" data-seg="y" data-kind="s" data-d="1">+5</button>
               </div>
@@ -299,14 +319,14 @@ TIME</span></div>
               <h4><span>4.</span> <span class="dot red"></span> <strong>Red</strong></h4>
               <div class="counter">
                 <span class="lbl">Minutes</span>
-                <button class="btnStep" data-seg="r" data-kind="m" data-d="-1">−</button>
+                <button class="btnStep" data-seg="r" data-kind="m" data-d="-1">â€“</button>
                 <span class="val" id="rMinVal">3</span>
                 <button class="btnStep" data-seg="r" data-kind="m" data-d="1">+</button>
                 <button class="btnDelete" data-del="r">Delete</button>
               </div>
               <div class="counter">
-                <span class="lbl">Seconds (×5)</span>
-                <button class="btnStep" data-seg="r" data-kind="s" data-d="-1">−5</button>
+                <span class="lbl">Seconds (Ã—5)</span>
+                <button class="btnStep" data-seg="r" data-kind="s" data-d="-1">â€“5</button>
                 <span class="val" id="rSecOnly">00</span>
                 <button class="btnStep" data-seg="r" data-kind="s" data-d="1">+5</button>
               </div>
@@ -320,7 +340,7 @@ TIME</span></div>
           </div>
         </div>
 
-        <div class="card-footer">
+        <div class="card-footer" style="padding:10px 12px;display:flex;gap:10px;flex-wrap:wrap">
           <button class="btn" id="pauseBtn">Pause</button>
           <button class="btn primary" id="returnBtn">Return</button>
           <button class="btn warn" id="resetBtn">Reset</button>
@@ -332,7 +352,25 @@ TIME</span></div>
           <button class="btn neutral" id="presetShortBtn" title="Blue 5s, Green 5s, Yellow 5s, Red 5s">Short</button>
           <button class="btn neutral" id="presetClapBtn" title="Blue 2m, Green to 9:00, Yellow to 17:00, Red to 20:00">Clap</button>
 
-          <button class="btn warn" id="deleteAllBtn" title="Press 3× to delete all">Delete All (×3)</button>
+          <button class="btn warn" id="deleteAllBtn" title="Press 3Ã— to delete all">Delete All (Ã—3)</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Preset Picker (simple) -->
+    <div class="sheet" id="presetSheet">
+      <div class="card" style="max-width:560px">
+        <div class="card-header"><h2 class="card-title">Choose a Preset</h2></div>
+        <div class="card-body" style="display:flex;gap:10px;flex-wrap:wrap">
+          <button class="btn primary" data-preset="20">20</button>
+          <button class="btn primary" data-preset="25">25</button>
+          <button class="btn primary" data-preset="9">9</button>
+          <button class="btn primary" data-preset="short">Short</button>
+          <button class="btn primary" data-preset="clap">Clap</button>
+        </div>
+        <div class="card-footer" style="padding:10px 12px;display:flex;gap:10px;flex-wrap:wrap">
+          <button class="btn" id="presetEditBtn">Editâ€¦</button>
+          <button class="btn neutral" id="presetCloseBtn">Close</button>
         </div>
       </div>
     </div>
@@ -345,8 +383,16 @@ TIME</span></div>
   const clock = document.getElementById('clock');
   const clockStrip = document.getElementById('clockStrip');
   const blinkMask = document.getElementById('blinkMask');
+  const field = document.getElementById('field');
 
-  // Segments (Blue → Green → Yellow → Red)
+  // State overlay
+  const overlay = document.getElementById('stateOverlay');
+  const stateLabel = document.getElementById('stateLabel');
+  const resetBtn2 = document.getElementById('resetBtn2');
+  const presetBtn = document.getElementById('presetBtn');
+  const tapTip = document.getElementById('tapTip');
+
+  // Segments (Blue â†’ Green â†’ Yellow â†’ Red)
   const segB = document.getElementById('segB');
   const segG = document.getElementById('segG');
   const segY = document.getElementById('segY');
@@ -374,11 +420,7 @@ TIME</span></div>
   const versionBadge = document.getElementById('versionBadge');
   const wm = document.getElementById('wm');
 
-  // Start slab
-  const startSlab = document.getElementById('startSlab');
-  const startBtn = document.getElementById('startBtn');
-
-  // Settings
+  // Settings (Edit page)
   const sheet = document.getElementById('sheet');
   const pauseBtn = document.getElementById('pauseBtn');
   const returnBtn = document.getElementById('returnBtn');
@@ -398,6 +440,11 @@ TIME</span></div>
 
   const previewClock = document.getElementById('previewClock');
   const previewState = document.getElementById('previewState');
+
+  // Preset picker
+  const presetSheet = document.getElementById('presetSheet');
+  const presetEditBtn = document.getElementById('presetEditBtn');
+  const presetCloseBtn = document.getElementById('presetCloseBtn');
 
   /* ===== Defaults (20) ===== */
   const DEFAULT_B = 4*60, DEFAULT_G = 10*60, DEFAULT_Y = 3*60, DEFAULT_R = 3*60;
@@ -513,7 +560,8 @@ TIME</span></div>
   function start(){
     if (running || totalSec===0) return;
     running=true;
-    startSlab.classList.add('start-hidden');
+    overlay.classList.add('hidden');
+    tapTip.textContent = 'Tap anywhere to pause Â· Space toggles';
     clockStrip.style.background='#000';
     root.classList.remove('overtime');
     lastTick=performance.now();
@@ -523,13 +571,26 @@ TIME</span></div>
   function pause(){
     running=false;
     if (rafId){ cancelAnimationFrame(rafId); rafId=null; }
-    startSlab.classList.remove('start-hidden');
+    overlay.classList.remove('hidden');
+    stateLabel.textContent='PAUSE';
+    resetBtn2.style.display='inline-flex';
+    tapTip.textContent = 'Tap anywhere to resume Â· Space toggles';
     setMiniStatus(); updateWmVisibility();
+  }
+  function toReady(){
+    running=false;
+    if (rafId){ cancelAnimationFrame(rafId); rafId=null; }
+    overlay.classList.remove('hidden');
+    stateLabel.textContent='READY';
+    resetBtn2.style.display='none';
+    tapTip.textContent = 'Tap anywhere to start Â· Space toggles';
+    setMiniStatus();
   }
   function resetElapsed(){
     elapsed=0; scheduledFinalBlinks.clear(); blinking=false; blinkMask.style.display='none'; otBlinkMinuteDone=-1;
     clock.style.opacity='1'; clockStrip.style.background='#000'; root.classList.remove('overtime');
-    clock.textContent=fmtSS(0); updateDigitColor(); updateSegments(0); setMiniStatus(); fitClockThrottled(); updateWmVisibility();
+    clock.textContent=fmtSS(0); updateDigitColor(); updateSegments(0); fitClockThrottled();
+    toReady();
   }
 
   function tick(now){
@@ -550,7 +611,7 @@ TIME</span></div>
     rafId=requestAnimationFrame(tick);
   }
 
-  /* Final (Red) segment blinks: 17→6, 18→4, 19→2 */
+  /* Final (Red) segment blinks: 17â†’6, 18â†’4, 19â†’2 */
   function finalStartSec(){ return bSec + gSec + ySec; }
   function inFinalSegment(){ return elapsed >= finalStartSec() && elapsed < totalSec; }
   const sleep = ms => new Promise(r=>setTimeout(r,ms));
@@ -576,30 +637,41 @@ TIME</span></div>
   }
   async function blinkClockDigits(n){ for (let i=0;i<n;i++){ clock.style.opacity='0'; await sleep(500); clock.style.opacity='1'; await sleep(500); } clock.style.opacity='1'; }
 
-  /* Triple-tap to open settings */
-  let tapCount=0,tapTimer=null;
-  document.addEventListener('pointerdown',()=>{
-    tapCount++; if (tapTimer) clearTimeout(tapTimer);
-    tapTimer=setTimeout(()=>{ tapCount=0; },600);
-    if (tapCount>=3){ tapCount=0; openSettings(); }
+  /* Field click to toggle start/pause */
+  field.addEventListener('click',(e)=>{
+    // Ignore clicks that originate from buttons or open sheets
+    if (sheet.classList.contains('open') || presetSheet.classList.contains('open')) return;
+    const isButton = e.target.closest('button');
+    if (isButton) return;
+    if (running){ pause(); }
+    else { goFullscreenAndLockLandscape().finally(()=> start()); }
   });
-  // Start slab/button: also try fullscreen + lock
-  startSlab.addEventListener('click', async ()=>{
-    if(!running){
-      await goFullscreenAndLockLandscape();
-      closeSettings(); start();
-    }
-  });
-  startBtn.addEventListener('click', async ()=>{
-    await goFullscreenAndLockLandscape();
-    closeSettings(); start();
+
+  // Overlay buttons
+  presetBtn.addEventListener('click',(e)=>{ e.stopPropagation(); presetSheet.classList.add('open'); });
+  resetBtn2.addEventListener('click',(e)=>{ e.stopPropagation(); resetElapsed(); });
+
+  // Preset picker
+  presetCloseBtn.addEventListener('click',()=> presetSheet.classList.remove('open'));
+  presetEditBtn.addEventListener('click',()=>{ presetSheet.classList.remove('open'); openSettings(); });
+
+  presetSheet.addEventListener('click',(e)=>{
+    const btn = e.target.closest('button[data-preset]'); if (!btn) return;
+    const key = btn.getAttribute('data-preset');
+    if (key==='20') setFromEndpoints(4*60, 14*60, 17*60, 20*60);
+    else if (key==='25') setFromEndpoints(4*60, 19*60, 22*60, 25*60);
+    else if (key==='9') setFromEndpoints(2*60, 6*60, 7*60, 9*60);
+    else if (key==='short') setFromEndpoints(5, 10, 15, 20);
+    else if (key==='clap') setFromEndpoints(2*60, 9*60, 17*60, 20*60);
+    resetElapsed(); // go to READY after choosing a preset
+    presetSheet.classList.remove('open');
   });
 
   function openSettings(){ sheet.classList.add('open'); setMiniStatus(); updateWmVisibility(); }
   function closeSettings(){ sheet.classList.remove('open'); updateWmVisibility(); }
 
   pauseBtn.addEventListener('click',()=>{ pause(); setMiniStatus(); });
-  returnBtn.addEventListener('click',()=>{ saveTimes(); closeSettings(); });
+  returnBtn.addEventListener('click',()=>{ closeSettings(); });
   resetBtn.addEventListener('click',()=>{ pause(); resetElapsed(); });
 
   /* ===== Presets (set via endpoints) ===== */
@@ -610,26 +682,22 @@ TIME</span></div>
     rSec = Math.max(0, tEnd - t3);
     updateDisplayVals(); saveTimes();
   }
-  // 20 (classic): 0,4,14,17,20
-  preset20Btn.addEventListener('click',()=> setFromEndpoints(4*60, 14*60, 17*60, 20*60));
-  // 25: 0,4,19,22,25
-  preset25Btn.addEventListener('click',()=> setFromEndpoints(4*60, 19*60, 22*60, 25*60));
-  // 9: 0,2,6,7,9
-  preset9Btn.addEventListener('click',()=> setFromEndpoints(2*60, 6*60, 7*60, 9*60));
-  // Short: 0,5s,10s,15s,20s
-  presetShortBtn.addEventListener('click',()=> setFromEndpoints(5, 10, 15, 20));
-  // Clap (corrected): 0,2m,9m,17m,20m
-  presetClapBtn.addEventListener('click',()=> setFromEndpoints(2*60, 9*60, 17*60, 20*60));
+  // Settings page quick buttons (also keep parity with picker)
+  preset20Btn.addEventListener('click',()=> { setFromEndpoints(4*60, 14*60, 17*60, 20*60); });
+  preset25Btn.addEventListener('click',()=> { setFromEndpoints(4*60, 19*60, 22*60, 25*60); });
+  preset9Btn.addEventListener('click',()=>  { setFromEndpoints(2*60, 6*60, 7*60, 9*60); });
+  presetShortBtn.addEventListener('click',()=>{ setFromEndpoints(5, 10, 15, 20); });
+  presetClapBtn.addEventListener('click',()=>{ setFromEndpoints(2*60, 9*60, 17*60, 20*60); });
 
-  // Delete All (×3)
+  // Delete All (Ã—3)
   let delTap=0,delTimer=null;
   deleteAllBtn.addEventListener('click',()=>{
     delTap++; deleteAllBtn.textContent=`Delete All (${delTap}/3)`;
     if (delTimer) clearTimeout(delTimer);
-    delTimer=setTimeout(()=>{ delTap=0; deleteAllBtn.textContent='Delete All (×3)'; },1200);
+    delTimer=setTimeout(()=>{ delTap=0; deleteAllBtn.textContent='Delete All (Ã—3)'; },1200);
     if (delTap>=3){
       delTap=0; bSec=gSec=ySec=rSec=0; updateDisplayVals(); saveTimes();
-      deleteAllBtn.textContent='Deleted'; setTimeout(()=> deleteAllBtn.textContent='Delete All (×3)',900);
+      deleteAllBtn.textContent='Deleted'; setTimeout(()=> deleteAllBtn.textContent='Delete All (Ã—3)',900);
     }
   });
 
@@ -685,13 +753,14 @@ TIME</span></div>
   updateDigitColor();
   fitClock();
   setMiniStatus();
+  toReady();
 
   window.addEventListener('resize',()=>{ fitClockThrottled(); positionMarkers(); });
   window.addEventListener('orientationchange',()=>{ fitClockThrottled(); positionMarkers(); });
 
   // Keyboard helpers
   window.addEventListener('keydown',e=>{
-    if(e.key===' '){ e.preventDefault(); running?pause():start(); }
+    if(e.key===' '){ e.preventDefault(); if (running) pause(); else start(); }
     else if(e.key.toLowerCase()==='s'){ sheet.classList.toggle('open'); updateWmVisibility(); }
     else if(e.key.toLowerCase()==='r'){ pause(); resetElapsed(); }
   });
