@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
-<title>Improv Timer v43</title>
+<title>Improv Timer v44</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#000000">
 <meta name="mobile-web-app-capable" content="yes">
@@ -56,9 +56,14 @@
   /* READY/PAUSE overlay */
   .state-overlay{position:absolute;inset:0;z-index:6;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(0,0,0,.28);backdrop-filter:blur(1px);} 
   .state-overlay.hidden{display:none}
+  .state-overlay.starting .state-row{display:none;} /* hide Presets row during GO! */
   .state-label{font-weight:1000;letter-spacing:.04em;font-size:clamp(26px,7vw,88px);text-transform:uppercase;text-shadow:0 0 18px rgba(0,0,0,.6);}
 
-  /* Mid-screen row for Reset (left) + Presets (right) */
+  /* Reset under PAUSE (centered) */
+  .reset-under{display:none; margin-top:14px; justify-content:center;}
+  .reset-under.show{display:flex;}
+
+  /* Mid-screen row for Presets on right */
   .state-row{position:absolute;left:12px;right:12px;top:50%;transform:translateY(-50%);display:flex;align-items:center;gap:12px;}
   .state-row .spacer{flex:1}
 
@@ -120,7 +125,7 @@
 <body>
   <div class="app" id="app">
     <div class="hud-clock" id="nowClock">00:00</div>
-    <div class="hud-badge" id="versionBadge">v43</div>
+    <div class="hud-badge" id="versionBadge">v44</div>
     <div class="wm" id="wm">Jimmy James â€“ 16.10.2025</div>
 
     <div class="field" id="field">
@@ -155,9 +160,13 @@ TIME</span></div>
       <div class="state-overlay" id="stateOverlay" aria-hidden="false">
         <div class="state-label" id="stateLabel">READY</div>
 
-        <!-- Mid-screen row with big Reset and Presets -->
-        <div class="state-row">
+        <!-- Reset under the big PAUSE text (centered) -->
+        <div class="reset-under" id="resetUnder">
           <button class="btn warn quad" id="resetBtn2" style="display:none">Reset</button>
+        </div>
+
+        <!-- Mid-screen row with Presets on the right -->
+        <div class="state-row">
           <div class="spacer"></div>
           <button class="btn neutral quad" id="presetBtn">Presets</button>
         </div>
@@ -315,6 +324,7 @@ TIME</span></div>
   const overlay=document.getElementById('stateOverlay');
   const stateLabel=document.getElementById('stateLabel');
   const resetBtn2=document.getElementById('resetBtn2');
+  const resetUnder=document.getElementById('resetUnder');
   const presetBtn=document.getElementById('presetBtn');
   const tapTip=document.getElementById('tapTip');
 
@@ -478,7 +488,8 @@ TIME</span></div>
   function start(){
     if (running || totalSec===0) return;
     running=true;
-    // Show GO! for 1.8s at the same spot/size as PAUSE
+    // While starting, hide Presets row and READY label, show GO! for 1.8s
+    overlay.classList.add('starting');
     stateLabel.textContent='GO!';
     overlay.classList.remove('hidden');
     setTimeout(()=> overlay.classList.add('hidden'), 1800);
@@ -494,8 +505,10 @@ TIME</span></div>
     running=false;
     if (rafId){ cancelAnimationFrame(rafId); rafId=null; }
     overlay.classList.remove('hidden');
+    overlay.classList.remove('starting'); // ensure presets row returns
     stateLabel.textContent='PAUSE';
     resetBtn2.style.display='inline-flex';
+    resetUnder.classList.add('show'); // show centered reset
     tapTip.textContent='Tap anywhere to resume Â· Space toggles';
     setMiniStatus(); updateWmVisibility();
   }
@@ -503,8 +516,10 @@ TIME</span></div>
     running=false;
     if (rafId){ cancelAnimationFrame(rafId); rafId=null; }
     overlay.classList.remove('hidden');
+    overlay.classList.remove('starting'); // ensure presets row visible in READY
     stateLabel.textContent='READY';
     resetBtn2.style.display='none';
+    resetUnder.classList.remove('show');
     tapTip.textContent='Tap anywhere to start Â· Space toggles';
     setMiniStatus();
     showWM();
@@ -582,7 +597,7 @@ TIME</span></div>
     else if (key==='9')  setFromEndpoints(120, 360, 420, 540);
     else if (key==='short') setFromEndpoints(5, 10, 15, 20);
     else if (key==='clap')  setFromEndpoints(120, 540, 1020, 1200);
-    resetElapsed();
+    resetElapsed(); // preset chosen -> ready state; Presets row remains available
     presetSheet.classList.remove('open');
   });
 
